@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from building_coords import resolve_coordinates, CAMPUS_CENTER
 from rss_fetcher import fetch_alerts
 from nlp_summarizer import summarize, triage
-from database import log_interaction, hash_netid
+from database import log_interaction
 from recommender import get_recommendations
 from events_fetcher import fetch_live_events
 from events import update_live_cache
@@ -90,7 +90,7 @@ POLL_INTERVAL_SECONDS = 300  # 5 minutes
 async def refresh_alerts() -> None:
     global _cache
 
-    raw_alerts, feed_ok = fetch_alerts(use_seed_on_empty=False)
+    raw_alerts, feed_ok = fetch_alerts()
     ai_ok = True
     pins: list[AlertPin] = []
 
@@ -213,18 +213,6 @@ async def get_alerts() -> AlertsResponse:
 @app.get("/api/health")
 async def health() -> dict:
     return {"status": "ok"}
-
-
-class LoginRequest(BaseModel):
-    netid: str
-
-
-@app.post("/api/login")
-async def login(body: LoginRequest) -> dict:
-    if not body.netid or not body.netid.strip():
-        return {"error": "NetID required"}
-    hashed = hash_netid(body.netid)
-    return {"hashed_netid": hashed}
 
 
 @app.get("/api/recommendations")

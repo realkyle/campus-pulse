@@ -2,28 +2,13 @@ import feedparser
 import hashlib
 import logging
 from datetime import datetime, timezone
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 UW_ALERTS_RSS = "https://www.washington.edu/safety/alert/feed/"
 
-# Sample alerts used when the live RSS feed returns nothing or errors.
-SEED_ALERTS = [
-    {
-        "id": "seed-001",
-        "raw_text": "Police activity near UW1, avoid the area and seek shelter immediately.",
-        "published": "2026-05-18T10:00:00Z",
-    },
-    {
-        "id": "seed-002",
-        "raw_text": "All-clear: The earlier police activity near UW1 has been resolved. Normal operations may resume.",
-        "published": "2026-05-18T11:30:00Z",
-    },
-]
 
-
-def fetch_alerts(use_seed_on_empty: bool = True) -> tuple[list[dict], bool]:
+def fetch_alerts() -> tuple[list[dict], bool]:
     """
     Returns (alerts, feed_ok).
     Each alert dict has: id, raw_text, published.
@@ -44,12 +29,8 @@ def fetch_alerts(use_seed_on_empty: bool = True) -> tuple[list[dict], bool]:
             published = entry.get("published", datetime.now(timezone.utc).isoformat())
             alerts.append({"id": entry_id, "raw_text": text, "published": published})
 
-        if not alerts and use_seed_on_empty:
-            return SEED_ALERTS, True
         return alerts, True
 
     except Exception as e:
         logger.exception("Exception fetching RSS: %s", e)
-        if use_seed_on_empty:
-            return SEED_ALERTS, False
         return [], False
