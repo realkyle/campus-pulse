@@ -1,8 +1,10 @@
 import asyncio
 import logging
 import os
+import secrets
+import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
 
 logging.basicConfig(
     level=logging.INFO,
@@ -11,13 +13,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from building_coords import resolve_coordinates, CAMPUS_CENTER
+from building_coords import BUILDING_COORDS, CAMPUS_CENTER, resolve_coordinates
 from rss_fetcher import fetch_alerts
-from nlp_summarizer import summarize, triage
+from demo_pins import DemoCapacityError, DemoPinStore
+from nlp_summarizer import AlertSummary, summarize, triage
 from database import log_interaction
 from recommender import get_recommendations
 from events_fetcher import fetch_live_events
@@ -31,8 +34,8 @@ app = FastAPI(title="Campus Pulse API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://css382-dyop.vercel.app", "http://localhost:3000"],
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Content-Type", "X-Admin-Token"],
 )
 
 # ── In-memory cache ──────────────────────────────────────────────────────────
@@ -62,7 +65,7 @@ _cache: AlertsResponse = AlertsResponse(
     feed_available=True,
 )
 
-_demo_pins: list[AlertPin] = []
+demo_pins: DemoPinStore[AlertPin] = DemoPinStore()
 
 DEMO_SCENARIOS = {
     "high": (
@@ -200,10 +203,11 @@ async def get_events() -> dict:
 
 @app.get("/api/alerts", response_model=AlertsResponse)
 async def get_alerts() -> AlertsResponse:
-    if not _demo_pins:
+    active_demos = demo_pins.active()
+    if not active_demos:
         return _cache
     return AlertsResponse(
-        alerts=_cache.alerts + _demo_pins,
+        alerts=_cache.alerts + active_demos,
         last_updated=_cache.last_updated,
         ai_available=_cache.ai_available,
         feed_available=_cache.feed_available,
@@ -225,52 +229,79 @@ async def recommendations(
     return {"events": events, "mode": mode}
 
 
-@app.post("/api/demo")
-async def trigger_demo(building: str = "UW1", severity: str = "high") -> dict:
-    global _demo_pins
+def require_demo_admin(x_admin_token: Optional[str] = Header(default=None)) -> None:
+    """Allow the request only if it carries the server's DEMO_ADMIN_TOKEN.
 
-    pin_id = f"demo-{int(datetime.now(timezone.utc).timestamp() * 1000)}"
-    incident_type, raw_tpl, action_tpl = DEMO_SCENARIOS.get(severity, DEMO_SCENARIOS["high"])
+    The feature is off (404) when no token is configured, so a deployment
+    without the env var can't be abused. Interim until login tokens are
+    verified on the backend; see api/demo.md.
+    """
+    expected = os.environ.get("DEMO_ADMIN_TOKEN")
+    if not expected:
+        raise HTTPException(status_code=404, detail="Not Found")
+    # compare_digest takes the same time wherever the strings differ, so response
+    # timing can't be used to guess the token one character at a time.
+    if x_admin_token is None or not secrets.compare_digest(x_admin_token.encode(), expected.encode()):
+        raise HTTPException(status_code=401, detail="Invalid or missing admin token")
 
-    raw_text = raw_tpl.format(building=building.upper())
-    action = action_tpl.format(building=building.upper())
+
+# Plain `def` (not async): FastAPI runs it on a thread pool, so the blocking
+# OpenAI triage call doesn't freeze the event loop for other requests.
+@app.post("/api/demo", dependencies=[Depends(require_demo_admin)])
+def trigger_demo(
+    building: str = "UW1",
+    severity: Literal["low", "medium", "high"] = "high",
+) -> dict:
+    building = building.strip().upper()
+    if building not in BUILDING_COORDS:
+        raise HTTPException(status_code=422, detail=f"Unknown building: {building}")
+    # Checked before the AI call so a full store doesn't cost an OpenAI request;
+    # demo_pins.add() below is still the authoritative, atomic check.
+    if demo_pins.is_full():
+        raise HTTPException(status_code=429, detail="Too many active demo alerts")
+
+    incident_type, raw_tpl, action_tpl = DEMO_SCENARIOS[severity]
+    raw_text = raw_tpl.format(building=building)
+    action = action_tpl.format(building=building)
     headline = None
     safety_brief = None
     if severity == "high":
-        from nlp_summarizer import AlertSummary
-        mock = AlertSummary(building_name=building.upper(), incident_type=incident_type, severity="high", recommended_action=action)
-        result = triage(raw_text, mock)
+        summary = AlertSummary(building_name=building, incident_type=incident_type, severity="high", recommended_action=action)
+        result = triage(raw_text, summary)
         if result:
             headline = result.headline
             safety_brief = result.safety_brief
-    demo_pin = AlertPin(
+
+    pin_id = f"demo-{uuid.uuid4().hex[:12]}"
+    pin = AlertPin(
         id=pin_id,
         raw_text=raw_text,
-        building_name=building.upper(),
+        building_name=building,
         incident_type=incident_type,
         severity=severity,
         recommended_action=action,
-        coordinates=list(resolve_coordinates(building.upper())),
+        coordinates=list(resolve_coordinates(building)),
         published=datetime.now(timezone.utc).isoformat(),
         headline=headline,
         safety_brief=safety_brief,
     )
-
-    _demo_pins.append(demo_pin)
-
-    async def remove_pin():
-        global _demo_pins
-        await asyncio.sleep(60)
-        _demo_pins = [p for p in _demo_pins if p.id != pin_id]
-
-    asyncio.create_task(remove_pin())
-    return {"status": "ok", "pin_id": pin_id, "building": building.upper(), "severity": severity, "expires_in": 60}
+    try:
+        demo_pins.add(pin_id, pin)
+    except DemoCapacityError:
+        raise HTTPException(status_code=429, detail="Too many active demo alerts")
+    return {"status": "ok", "pin_id": pin_id, "building": building, "severity": severity, "expires_in": demo_pins.ttl_seconds}
 
 
-@app.post("/api/demo/clear")
-async def clear_demo() -> dict:
-    global _demo_pins
-    _demo_pins = []
+@app.delete("/api/demo/{pin_id}", dependencies=[Depends(require_demo_admin)])
+def remove_demo(pin_id: str) -> dict:
+    if not demo_pins.remove(pin_id):
+        raise HTTPException(status_code=404, detail="No active demo pin with that ID")
+    return {"status": "removed", "pin_id": pin_id}
+
+
+@app.post("/api/demo/clear", dependencies=[Depends(require_demo_admin)])
+def clear_demo() -> dict:
+    demo_pins.clear()
     return {"status": "cleared"}
 
 

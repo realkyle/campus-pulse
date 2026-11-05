@@ -48,6 +48,7 @@ pip install "numpy<2"
 cp ../.env.example .env
 # Edit .env and add:
 #   OPENAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
+#   optional: DEMO_ADMIN_TOKEN (enables admin-only demo alerts, see api/demo.md)
 
 uvicorn main:app --reload --port 8000
 ```

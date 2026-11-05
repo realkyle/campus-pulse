@@ -20,6 +20,15 @@ const SEVERITY_COLORS: Record<Severity, { bg: string; border: string; text: stri
 };
 
 const DEMO_KEY = "campus_pulse_demos";
+// sessionStorage, not localStorage: the admin token is forgotten when the tab closes.
+const ADMIN_TOKEN_KEY = "campus_pulse_admin_token";
+
+const DEMO_ERRORS: Record<number, string> = {
+  401: "Wrong admin token.",
+  404: "Demo alerts are turned off on this server.",
+  422: "Invalid building or severity.",
+  429: "5 demo alerts are already active. Clear one or wait for it to expire.",
+};
 
 type DemoEntry = { id: string; building: string; severity: Severity; expiresAt: number };
 
@@ -27,6 +36,8 @@ function DemoControls() {
   const [building, setBuilding] = useState("UW1");
   const [severity, setSeverity] = useState<Severity>("high");
   const [demos, setDemos] = useState<DemoEntry[]>([]);
+  const [adminToken, setAdminToken] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function saveDemos(entries: DemoEntry[]) {
@@ -38,8 +49,26 @@ function DemoControls() {
     return Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
   }
 
-  // Restore from localStorage on mount and tick every second
+  function handleTokenChange(value: string) {
+    setAdminToken(value);
+    sessionStorage.setItem(ADMIN_TOKEN_KEY, value);
+  }
+
+  async function adminFetch(path: string, method: "POST" | "DELETE"): Promise<Response | null> {
+    setError(null);
+    try {
+      const res = await fetch(`${API_URL}${path}`, { method, headers: { "X-Admin-Token": adminToken } });
+      if (!res.ok) setError(DEMO_ERRORS[res.status] ?? `Request failed (HTTP ${res.status}).`);
+      return res;
+    } catch {
+      setError("Could not reach the backend.");
+      return null;
+    }
+  }
+
+  // Restore from storage on mount and tick every second
   useEffect(() => {
+    setAdminToken(sessionStorage.getItem(ADMIN_TOKEN_KEY) ?? "");
     const stored = localStorage.getItem(DEMO_KEY);
     if (stored) {
       const parsed: DemoEntry[] = JSON.parse(stored).filter((d: DemoEntry) => getRemaining(d.expiresAt) > 0);
@@ -57,21 +86,23 @@ function DemoControls() {
   }, []);
 
   async function handleTrigger() {
-    const res = await fetch(`${API_URL}/api/demo?building=${building}&severity=${severity}`, { method: "POST" });
-    if (!res.ok) return;
+    const params = new URLSearchParams({ building, severity });
+    const res = await adminFetch(`/api/demo?${params}`, "POST");
+    if (!res?.ok) return;
     const data = await res.json();
     const entry: DemoEntry = { id: data.pin_id, building: data.building, severity, expiresAt: Date.now() + data.expires_in * 1000 };
     saveDemos([...demos, entry]);
   }
 
   async function handleClearOne(id: string) {
-    await fetch(`${API_URL}/api/demo/clear`, { method: "POST" });
-    saveDemos(demos.filter((d) => d.id !== id));
+    const res = await adminFetch(`/api/demo/${encodeURIComponent(id)}`, "DELETE");
+    // 404 means it already expired on the server, so drop it locally too.
+    if (res?.ok || res?.status === 404) saveDemos(demos.filter((d) => d.id !== id));
   }
 
   async function handleClearAll() {
-    await fetch(`${API_URL}/api/demo/clear`, { method: "POST" });
-    saveDemos([]);
+    const res = await adminFetch("/api/demo/clear", "POST");
+    if (res?.ok) saveDemos([]);
   }
 
   return (
@@ -84,6 +115,19 @@ function DemoControls() {
       </div>
 
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-end" }}>
+
+        {/* Admin token: the backend rejects demo requests without it */}
+        <div>
+          <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Admin token</div>
+          <input
+            type="password"
+            value={adminToken}
+            onChange={(e) => handleTokenChange(e.target.value)}
+            placeholder="Required"
+            autoComplete="off"
+            style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 6, color: "#f1f5f9", fontSize: 13, padding: "8px 12px", width: 160 }}
+          />
+        </div>
 
         {/* Building selector */}
         <div>
@@ -120,7 +164,8 @@ function DemoControls() {
         {/* Trigger button */}
         <button
           onClick={handleTrigger}
-          style={{ background: SEVERITY_COLORS[severity].bg, border: `1px solid ${SEVERITY_COLORS[severity].border}`, borderRadius: 6, color: SEVERITY_COLORS[severity].text, fontSize: 13, fontWeight: 700, padding: "8px 20px", cursor: "pointer" }}
+          disabled={!adminToken}
+          style={{ opacity: adminToken ? 1 : 0.5, background: SEVERITY_COLORS[severity].bg, border: `1px solid ${SEVERITY_COLORS[severity].border}`, borderRadius: 6, color: SEVERITY_COLORS[severity].text, fontSize: 13, fontWeight: 700, padding: "8px 20px", cursor: adminToken ? "pointer" : "not-allowed" }}
         >
           Add Alert
         </button>
@@ -159,8 +204,12 @@ function DemoControls() {
         </div>
       )}
 
+      {error && (
+        <p role="alert" style={{ fontSize: 12, color: "#fca5a5", marginTop: 12 }}>{error}</p>
+      )}
+
       <p style={{ fontSize: 12, color: "#475569", marginTop: 12 }}>
-        Each alert appears on the map for 60 seconds. Stack multiple alerts on different buildings simultaneously.
+        Admin only. Each alert appears on the map for 60 seconds, up to 5 at a time. Stack multiple alerts on different buildings simultaneously.
       </p>
     </section>
   );
