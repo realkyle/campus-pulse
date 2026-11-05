@@ -1,4 +1,3 @@
-import hashlib
 import logging
 import os
 from datetime import datetime, timezone
@@ -20,10 +19,6 @@ def _get_client() -> Client:
         key = os.environ["SUPABASE_SERVICE_KEY"]
         _client = create_client(url, key)
     return _client
-
-
-def hash_netid(netid: str) -> str:
-    return hashlib.sha256(netid.strip().lower().encode()).hexdigest()
 
 
 def log_interaction(hashed_netid: str, event_id: str) -> bool:

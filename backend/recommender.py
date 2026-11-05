@@ -1,7 +1,6 @@
 import logging
 
 from surprise import Dataset, Reader, SVD
-from surprise import accuracy
 import pandas as pd
 
 logger = logging.getLogger(__name__)

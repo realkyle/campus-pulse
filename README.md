@@ -47,7 +47,7 @@ pip install "numpy<2"
 
 cp ../.env.example .env
 # Edit .env and add:
-#   OPENAI_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY
+#   OPENAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
 
 uvicorn main:app --reload --port 8000
 ```

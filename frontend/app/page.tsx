@@ -40,14 +40,6 @@ export default function HomePage() {
   const [major, setMajor] = useState<string | null>(null);
   const [showAlertList, setShowAlertList] = useState(false);
 
-  // ?preview=1 — shows the For You panel with a test hash so the events feed
-  // can be verified without a working login. Remove before final submission.
-  const [isPreview, setIsPreview] = useState(false);
-  useEffect(() => {
-    setIsPreview(new URLSearchParams(window.location.search).get("preview") === "1");
-  }, []);
-  const effectiveHash = hashedNetid ?? (isPreview ? "preview-test-hash-0000" : null);
-
   useEffect(() => {
     const storedMajor = localStorage.getItem("major");
     if (storedMajor) setMajor(storedMajor);
@@ -279,13 +271,6 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Preview mode banner */}
-      {isPreview && !hashedNetid && (
-        <div style={{ background: "#451a03", color: "#fcd34d", padding: "6px 16px", fontSize: 12, fontWeight: 600 }}>
-          Preview mode — For You panel showing with test hash. Remove ?preview=1 before submission.
-        </div>
-      )}
-
       {/* Status banners */}
       {data && (
         <AlertBanner
@@ -340,9 +325,9 @@ export default function HomePage() {
           )}
         </div>
 
-        {effectiveHash && (
+        {hashedNetid && (
           <RecommendationsPanel
-            hashedNetid={effectiveHash}
+            hashedNetid={hashedNetid}
             major={major}
             onMajorChange={handleMajorChange}
           />
