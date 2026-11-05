@@ -78,6 +78,12 @@ def test_feature_off_hides_every_endpoint(feature_off):
     assert client.post("/api/demo/clear", headers=AUTH).status_code == 404
 
 
+def test_empty_token_setting_counts_as_off(monkeypatch):
+    # .env.example ships DEMO_ADMIN_TOKEN= (empty); that must not enable the feature.
+    monkeypatch.setenv("DEMO_ADMIN_TOKEN", "")
+    assert client.post("/api/demo", headers={"X-Admin-Token": ""}).status_code == 404
+
+
 # ── Authentication ────────────────────────────────────────────────────────────
 
 def test_missing_token_is_rejected(feature_on):
