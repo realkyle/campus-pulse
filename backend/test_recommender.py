@@ -87,6 +87,7 @@ def test_recommendations_respect_limit():
     with (
         patch.object(rec, "get_total_interaction_count", return_value=0),
         patch.object(rec, "get_user_interaction_count", return_value=0),
+        patch.object(rec, "get_popular_event_ids", return_value=[]),
     ):
         events, _ = rec.get_recommendations("testhash", limit=3)
         assert len(events) <= 3
@@ -96,8 +97,10 @@ def test_each_event_has_required_fields():
     with (
         patch.object(rec, "get_total_interaction_count", return_value=0),
         patch.object(rec, "get_user_interaction_count", return_value=0),
+        patch.object(rec, "get_popular_event_ids", return_value=[]),
     ):
         events, _ = rec.get_recommendations("testhash")
+        assert events  # an empty list would make the loop below pass vacuously
         for e in events:
             assert "id" in e
             assert "title" in e

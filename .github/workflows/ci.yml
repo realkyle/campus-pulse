@@ -23,7 +23,7 @@ jobs:
       - name: Run tests
         run: |
           cd backend
-          python -m pytest test_building_coords.py test_recommender.py -v
+          python -m pytest -v
 
   frontend:
     name: Frontend build
