@@ -75,7 +75,7 @@ source venv/bin/activate
 python test_nlp_summarizer.py
 
 # Unit tests — building coords + recommender threshold logic (no API keys needed)
-python -m pytest test_building_coords.py test_recommender.py -v
+python -m pytest -v
 ```
 
 ## Architecture
