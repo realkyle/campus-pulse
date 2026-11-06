@@ -247,7 +247,7 @@ export default function HomePage() {
               letterSpacing: "0.05em",
             }}
           >
-            CSS 382 — Design Your Own Project
+            Real-time campus map
           </div>
           <h1
             style={{
@@ -258,7 +258,7 @@ export default function HomePage() {
               lineHeight: 1.2,
             }}
           >
-            UW Bothell Campus Pulse
+            Campus Pulse
           </h1>
           <p
             style={{
@@ -269,11 +269,11 @@ export default function HomePage() {
               marginBottom: 32,
             }}
           >
-            Students at UW Bothell frequently miss critical campus information — club
-            events, guest lectures, and emergency alerts — because email is an
-            unreliable channel many students ignore. Campus Pulse is a real-time
-            browser-based map of UW Bothell that automatically surfaces alerts and
-            personalized event recommendations from official university sources.
+            Students frequently miss critical campus information — club events,
+            guest lectures, and emergency alerts — because email is an unreliable
+            channel many students ignore. Campus Pulse is a real-time, browser-based
+            campus map that automatically surfaces alerts and personalized event
+            recommendations from official university sources.
           </p>
 
           {/* Stat chips */}

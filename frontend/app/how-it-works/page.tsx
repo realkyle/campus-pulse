@@ -32,7 +32,7 @@ const LAYERS = [
     title: "Live Events Feed",
     color: "#a855f7",
     details: [
-      "Polls the official UW Bothell Trumba calendar RSS feeds every 60 minutes via a FastAPI background task",
+      "Polls the official campus Trumba calendar RSS feeds every 60 minutes via a FastAPI background task",
       "Fetches from both the Student Life and Campus-wide calendars, deduplicates by UID",
       "Filters out past events — only future events are surfaced",
       "Category is inferred from event title and description using keyword matching (technology, science, business, arts, health, sports, social)",

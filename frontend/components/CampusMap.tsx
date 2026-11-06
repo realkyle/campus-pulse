@@ -35,7 +35,7 @@ export interface BusStop {
   arrivals: BusArrival[];
 }
 
-// UW Bothell campus center and bounding box
+// Campus center and bounding box
 const CENTER: [number, number] = [47.7594, -122.1903];
 const BOUNDS: [[number, number], [number, number]] = [
   [47.753, -122.198],

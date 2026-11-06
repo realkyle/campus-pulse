@@ -9,7 +9,6 @@ const LINKS = [
   { href: "/home",          label: "Home" },
   { href: "/how-it-works",  label: "How It Works" },
   { href: "/user-guide",    label: "User Guide" },
-  { href: "/about",         label: "About" },
   { href: "/",              label: "Live Map" },
 ];
 
@@ -75,7 +74,7 @@ export default function SiteNav() {
           Campus Pulse
         </div>
         <div style={{ fontSize: 11, color: colors.textDimmer, marginTop: 2 }}>
-          UW Bothell
+          Live campus map
         </div>
       </div>
 
