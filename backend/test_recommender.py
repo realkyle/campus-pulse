@@ -26,10 +26,14 @@ def test_coldstart_with_known_major():
     with (
         patch.object(rec, "get_total_interaction_count", return_value=0),
         patch.object(rec, "get_user_interaction_count", return_value=0),
+        patch.object(rec, "get_popular_event_ids", return_value=[]),
     ):
-        events, mode = rec.get_recommendations("testhash", major="Computer Science")
+        events, mode = rec.get_recommendations("testhash", major="Computer Science", limit=8)
         assert mode == "cold-start"
-        assert len(events) > 0
+        # The major's category first, then topped up with other events to fill the list.
+        tech = [e for e in SAMPLE_EVENTS if e["category"] == "technology"]
+        assert [e["category"] for e in events[: len(tech)]] == ["technology"] * len(tech)
+        assert len(events) == 8
 
 
 def test_coldstart_with_unknown_major_falls_back_to_popularity():
@@ -115,3 +119,47 @@ def test_each_event_has_required_fields():
             assert "id" in e
             assert "title" in e
             assert "category" in e
+
+
+# ── Candidate cleanup (recommender PR 1) ──────────────────────────────────────
+
+def _with_catalog(catalog):
+    events.update_live_cache(catalog)
+
+
+def _event(event_id, title, category="social"):
+    return {"id": event_id, "title": title, "category": category, "building": "UW1",
+            "date": "Nov 05, 2026", "description": "", "url": None}
+
+
+@pytest.mark.parametrize("user_count", [0, 5])  # cold start and popularity
+def test_staff_events_and_repeat_dates_are_never_recommended(user_count):
+    _with_catalog([
+        _event("t1", "Campus Tour"),
+        _event("s1", "Sponsored Research Virtual Office Hours for Faculty"),
+        _event("t2", "Campus Tour"),
+        _event("r1", "Resume Workshop", "business"),
+    ])
+    with (
+        patch.object(rec, "get_total_interaction_count", return_value=0),
+        patch.object(rec, "get_user_interaction_count", return_value=user_count),
+        patch.object(rec, "get_popular_event_ids", return_value=[]),
+    ):
+        events_out, _ = rec.get_recommendations("testhash", limit=10)
+    assert [e["id"] for e in events_out] == ["t1", "r1"]
+
+
+def test_popularity_counts_clicks_on_any_date_of_a_series():
+    _with_catalog([
+        _event("r1", "Resume Workshop", "business"),
+        _event("t1", "Campus Tour"),
+        _event("t2", "Campus Tour"),   # a later date of the same tour
+    ])
+    with (
+        patch.object(rec, "get_total_interaction_count", return_value=0),
+        patch.object(rec, "get_user_interaction_count", return_value=3),
+        patch.object(rec, "get_popular_event_ids", return_value=["t2"]),
+    ):
+        events_out, mode = rec.get_recommendations("testhash", limit=10)
+    assert mode == "popularity"
+    assert [e["id"] for e in events_out] == ["t1", "r1"]  # the tour's next date ranks first

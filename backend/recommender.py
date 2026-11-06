@@ -5,25 +5,34 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+from candidates import series_key, student_candidates
 from database import get_all_interactions, get_total_interaction_count, get_user_interaction_count, get_popular_event_ids
-from events import get_all_events, get_event_by_id, get_events_by_categories, infer_categories_from_major
+from events import get_all_events, get_event_by_id, infer_categories_from_major
 
 GLOBAL_THRESHOLD = 50   # total interactions needed before CF activates
 USER_THRESHOLD = 10     # per-user interactions needed to use CF for that user
 
 
+def _candidates() -> list[dict]:
+    """Student events only, one (next) date per series, soonest first."""
+    return student_candidates(get_all_events())
+
+
 def _popularity_fallback(limit: int = 10) -> list[dict]:
-    """Most interacted-with events in the past 7 days, falling back to full catalog order."""
-    popular_ids = get_popular_event_ids(days=7, limit=limit)
-    all_events = get_all_events()
-    if popular_ids:
-        ordered = [get_event_by_id(eid) for eid in popular_ids if get_event_by_id(eid)]
-        seen = set(popular_ids)
-        for e in all_events:
-            if e["id"] not in seen:
-                ordered.append(e)
-        return ordered[:limit]
-    return all_events[:limit]
+    """Candidates whose series was clicked most in the past 7 days, then the rest by date.
+
+    Popularity is counted per series: a click on any date of "Campus Tour" counts
+    for the next date shown.
+    """
+    rank: dict[str, int] = {}
+    for event_id in get_popular_event_ids(days=7, limit=50):
+        event = get_event_by_id(event_id)
+        if event:
+            rank.setdefault(series_key(event["title"]), len(rank))
+    candidates = _candidates()
+    # Stable sort: popular series first in popularity order, the rest keep date order.
+    ordered = sorted(candidates, key=lambda e: rank.get(series_key(e["title"]), len(rank)))
+    return ordered[:limit]
 
 
 def _coldstart(major: str | None, limit: int = 10) -> list[dict]:
@@ -31,13 +40,13 @@ def _coldstart(major: str | None, limit: int = 10) -> list[dict]:
     For users with zero interactions: seed by declared major category if available,
     otherwise fall back to popularity.
     """
-    if major:
-        cats = infer_categories_from_major(major)
-        if cats:
-            seeded = get_events_by_categories(cats, limit=limit)
-            if seeded:
-                return seeded
-    return _popularity_fallback(limit)
+    popular = _popularity_fallback(limit=len(_candidates()))
+    cats = infer_categories_from_major(major) if major else []
+    # The major's categories first, then topped up with popular events so the
+    # list is full even when few events match the major.
+    seeded = [e for e in popular if e["category"] in cats]
+    rest = [e for e in popular if e["category"] not in cats]
+    return (seeded + rest)[:limit]
 
 
 def _collaborative_filter(hashed_netid: str, limit: int = 10) -> list[dict]:
@@ -57,7 +66,7 @@ def _collaborative_filter(hashed_netid: str, limit: int = 10) -> list[dict]:
     model.fit(trainset)
 
     seen_ids = {row["event_id"] for row in rows if row["hashed_netid"] == hashed_netid}
-    candidates = [e for e in get_all_events() if e["id"] not in seen_ids]
+    candidates = [e for e in _candidates() if e["id"] not in seen_ids]
 
     scored = []
     for event in candidates:
