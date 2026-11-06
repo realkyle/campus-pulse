@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useWindowWidth } from "@/lib/useWindowWidth";
+import { useIsMobile } from "@/lib/useMediaQuery";
 import { colors } from "@/lib/tokens";
 
 const LINKS = [
@@ -14,7 +14,7 @@ const LINKS = [
 
 export default function SiteNav() {
   const pathname = usePathname();
-  const isMobile = useWindowWidth() < 768;
+  const isMobile = useIsMobile();
 
   if (isMobile) {
     return (

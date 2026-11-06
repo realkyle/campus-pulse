@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { fetchAsUser } from "@/lib/api";
-import { useWindowWidth } from "@/lib/useWindowWidth";
+import { useIsMobile } from "@/lib/useMediaQuery";
 import { colors } from "@/lib/tokens";
 
 interface Event {
@@ -38,7 +38,7 @@ const MODE_LABEL: Record<string, string> = {
 };
 
 export default function RecommendationsPanel({ major, onMajorChange }: Props) {
-  const isMobile = useWindowWidth() < 768;
+  const isMobile = useIsMobile();
   const [events, setEvents] = useState<Event[]>([]);
   const [mode, setMode] = useState("");
   const [loading, setLoading] = useState(true);
