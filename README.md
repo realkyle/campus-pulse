@@ -20,7 +20,7 @@ Built with Next.js, FastAPI, OpenStreetMap (Leaflet), and GPT-4o-mini.
 | Map | OpenStreetMap via Leaflet |
 | Backend | FastAPI + Python 3.11 |
 | AI | GPT-4o-mini (NLP alert summarizer) |
-| Recommender | scikit-surprise SVD (collaborative filtering) |
+| Recommender | Hybrid ranking: content affinity + item-item co-clicks + popularity (`backend/scoring.py`) |
 | Events Feed | Trumba RSS (UW Bothell official calendar, refreshed hourly) |
 | Database | PostgreSQL / Supabase |
 | Auth | Auth0 (Google login + UW Duo MFA) |
@@ -43,7 +43,6 @@ Built with Next.js, FastAPI, OpenStreetMap (Leaflet), and GPT-4o-mini.
 cd backend
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-pip install "numpy<2"
 
 cp ../.env.example .env
 # Edit .env and add:
@@ -85,7 +84,7 @@ python -m pytest -v
 Browser
   └─► Next.js on Vercel (css382-dyop.vercel.app)
         ├─ CampusMap (react-leaflet / OpenStreetMap)
-        ├─ For You panel (SVD recommender + search + infinite scroll)
+        ├─ For You panel (hybrid recommender + search + infinite scroll)
         └─► FastAPI on Render (css382-dyop.onrender.com)
               ├─ Alert poller (5 min) → UW Alerts RSS → GPT-4o-mini → map pins
               ├─ Events poller (60 min) → Trumba RSS → category inference → For You feed

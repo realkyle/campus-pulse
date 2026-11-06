@@ -21,12 +21,18 @@ def _get_client() -> Client:
     return _client
 
 
-def log_interaction(hashed_netid: str, event_id: str) -> bool:
-    """Record that a user viewed/clicked an event. Returns True on success."""
+INTERACTION_COLUMNS = "hashed_netid, event_id, timestamp, category, series_key"
+PAGE_SIZE = 1000  # Supabase's default maximum rows per request
+
+
+def log_interaction(hashed_netid: str, event_id: str, category: str, series_key: str) -> bool:
+    """Record a click, with the event's category and series (they outlive the event). True on success."""
     try:
         _get_client().table("interactions").insert({
             "hashed_netid": hashed_netid,
             "event_id": event_id,
+            "category": category,
+            "series_key": series_key,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }).execute()
         return True
@@ -35,74 +41,45 @@ def log_interaction(hashed_netid: str, event_id: str) -> bool:
         return False
 
 
-def get_user_interaction_count(hashed_netid: str) -> int:
-    """How many interactions this specific user has logged."""
+def get_user_interactions(hashed_netid: str, limit: int = 500) -> list[dict]:
+    """This user's most recent clicks. Empty on error, so recommendations degrade to cold start."""
     try:
         result = (
             _get_client()
             .table("interactions")
-            .select("id", count="exact")
+            .select(INTERACTION_COLUMNS)
             .eq("hashed_netid", hashed_netid)
-            .execute()
-        )
-        return result.count or 0
-    except Exception as e:
-        logger.error("get_user_interaction_count failed: %s", e)
-        return 0
-
-
-def get_total_interaction_count() -> int:
-    """Total interactions across all users (used for global threshold check)."""
-    try:
-        result = (
-            _get_client()
-            .table("interactions")
-            .select("id", count="exact")
-            .execute()
-        )
-        return result.count or 0
-    except Exception as e:
-        logger.error("get_total_interaction_count failed: %s", e)
-        return 0
-
-
-def get_all_interactions() -> list[dict]:
-    """Return all interaction rows for building the collaborative filtering matrix."""
-    try:
-        result = (
-            _get_client()
-            .table("interactions")
-            .select("hashed_netid, event_id")
+            .order("timestamp", desc=True)
+            .limit(limit)
             .execute()
         )
         return result.data or []
     except Exception as e:
-        logger.error("get_all_interactions failed: %s", e)
+        logger.error("get_user_interactions failed: %s", e)
         return []
 
 
-def get_popular_event_ids(days: int = 7, limit: int = 20) -> list[str]:
+def fetch_all_interactions() -> list[dict]:
+    """Every click, read page by page so Supabase's per-request row cap can't truncate it.
+
+    Raises on error, so the caller can keep its previous aggregates instead of
+    replacing them with empty ones.
     """
-    Return event_ids ranked by interaction count in the past `days` days.
-    Used as the popularity fallback when CF thresholds aren't met.
-    """
-    try:
-        from datetime import timedelta
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
-        result = (
+    rows: list[dict] = []
+    start = 0
+    while True:
+        page = (
             _get_client()
             .table("interactions")
-            .select("event_id")
-            .gte("timestamp", cutoff)
+            .select(INTERACTION_COLUMNS)
+            # id is a random UUID: sort by time first so pages are chronological
+            # and a click inserted mid-read lands at the end, not inside a page.
+            .order("timestamp")
+            .order("id")
+            .range(start, start + PAGE_SIZE - 1)
             .execute()
-        )
-        rows = result.data or []
-        counts: dict[str, int] = {}
-        for row in rows:
-            eid = row["event_id"]
-            counts[eid] = counts.get(eid, 0) + 1
-        ranked = sorted(counts, key=lambda e: counts[e], reverse=True)
-        return ranked[:limit]
-    except Exception as e:
-        logger.error("get_popular_event_ids failed: %s", e)
-        return []
+        ).data or []
+        rows.extend(page)
+        if len(page) < PAGE_SIZE:
+            return rows
+        start += PAGE_SIZE

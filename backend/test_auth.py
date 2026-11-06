@@ -35,8 +35,9 @@ def recorded(monkeypatch) -> dict:
         calls["recommendations"] = (user_hash, major, limit)
         return [EVENT], "popularity"
 
-    def fake_log(user_hash, event_id):
+    def fake_log(user_hash, event_id, category, series):
         calls["interaction"] = (user_hash, event_id)
+        calls["interaction_details"] = (category, series)
         return True
 
     monkeypatch.setattr(main, "get_recommendations", fake_recommendations)
@@ -133,6 +134,7 @@ def test_interaction_is_logged_for_token_user(recorded):
     assert response.status_code == 200
     assert response.json() == {"recorded": True}
     assert recorded["interaction"] == (EXPECTED_HASH, "live-abc")
+    assert recorded["interaction_details"] == ("business", "workshop")  # stored with the click
 
 
 def test_interaction_for_unknown_event_is_404(recorded):

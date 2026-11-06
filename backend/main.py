@@ -24,7 +24,8 @@ from auth import AuthenticatedUser, get_current_user
 from demo_pins import DemoCapacityError, DemoPinStore
 from nlp_summarizer import AlertSummary, summarize, triage
 from database import log_interaction
-from recommender import get_recommendations
+from candidates import series_key
+from recommender import get_recommendations, refresh_stats
 from events_fetcher import fetch_live_events
 from events import get_all_events, get_event_by_id, update_live_cache
 from bus_fetcher import fetch_all_stops
@@ -127,6 +128,8 @@ async def events_loop() -> None:
                 logger.info("Events cache updated: %d live events", len(events))
         except Exception as e:
             logger.error("events_loop error: %s", e)
+        # After the events, so old clicks can be mapped through the fresh list.
+        await asyncio.to_thread(refresh_stats)
         await asyncio.sleep(EVENTS_REFRESH_SECONDS)
 
 
@@ -170,7 +173,7 @@ async def health() -> dict:
 
 
 # Plain `def` routes run on FastAPI's thread pool. They call synchronous
-# Supabase (and SVD) code, which inside `async def` would freeze the event loop
+# Supabase code, which inside `async def` would freeze the event loop
 # and every other request with it.
 # The user always comes from the verified token (get_current_user), never from
 # the URL or body, so a caller can't act as someone else (api/recommendations.md).
@@ -272,7 +275,8 @@ class InteractionRequest(BaseModel):
 @app.post("/api/interactions")
 def record_interaction(body: InteractionRequest, user: AuthenticatedUser = Depends(get_current_user)) -> dict:
     # Only real, current events can be recorded, so junk IDs can't skew the recommender.
-    if get_event_by_id(body.event_id) is None:
+    event = get_event_by_id(body.event_id)
+    if event is None:
         raise HTTPException(status_code=404, detail="Unknown event")
-    ok = log_interaction(user.user_hash, body.event_id)
+    ok = log_interaction(user.user_hash, body.event_id, event["category"], series_key(event["title"]))
     return {"recorded": ok}

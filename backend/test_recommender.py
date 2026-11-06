@@ -1,130 +1,25 @@
+"""get_recommendations() and refresh_stats() with the database faked (contract: api/recommendations.md)."""
+from datetime import datetime, timezone
 from unittest.mock import patch
+
 import pytest
 
 import events
 import recommender as rec
 from fixtures.sample_events import SAMPLE_EVENTS
+from scoring import InteractionStats
+
+NOW = datetime(2026, 11, 6, 12, tzinfo=timezone.utc)
 
 
 @pytest.fixture(autouse=True)
 def sample_catalog():
     """The app serves no events until the live calendar loads, so load the samples."""
     events.update_live_cache(SAMPLE_EVENTS)
+    previous_stats = rec._stats
     yield
     events.update_live_cache([])
-
-
-def _make_interactions(n_global: int, n_user: int, user_id: str = "testhash") -> list[dict]:
-    rows = [{"hashed_netid": user_id, "event_id": f"evt-{i}"} for i in range(n_user)]
-    rows += [{"hashed_netid": f"other-{i}", "event_id": f"evt-{i}"} for i in range(n_global - n_user)]
-    return rows
-
-
-# ── Cold-start ────────────────────────────────────────────────────────────────
-
-def test_coldstart_with_known_major():
-    with (
-        patch.object(rec, "get_total_interaction_count", return_value=0),
-        patch.object(rec, "get_user_interaction_count", return_value=0),
-        patch.object(rec, "get_popular_event_ids", return_value=[]),
-    ):
-        events, mode = rec.get_recommendations("testhash", major="Computer Science", limit=8)
-        assert mode == "cold-start"
-        # The major's category first, then topped up with other events to fill the list.
-        tech = [e for e in SAMPLE_EVENTS if e["category"] == "technology"]
-        assert [e["category"] for e in events[: len(tech)]] == ["technology"] * len(tech)
-        assert len(events) == 8
-
-
-def test_coldstart_with_unknown_major_falls_back_to_popularity():
-    with (
-        patch.object(rec, "get_total_interaction_count", return_value=0),
-        patch.object(rec, "get_user_interaction_count", return_value=0),
-        patch.object(rec, "get_popular_event_ids", return_value=[]),
-    ):
-        events, mode = rec.get_recommendations("testhash", major="Underwater Basket Weaving")
-        assert mode == "cold-start"
-        assert len(events) > 0
-
-
-# ── Popularity fallback ───────────────────────────────────────────────────────
-
-def test_popularity_when_user_has_some_interactions_but_below_threshold():
-    with (
-        patch.object(rec, "get_total_interaction_count", return_value=0),
-        patch.object(rec, "get_user_interaction_count", return_value=5),
-        patch.object(rec, "get_popular_event_ids", return_value=[]),
-    ):
-        events, mode = rec.get_recommendations("testhash")
-        assert mode == "popularity"
-        assert len(events) > 0
-
-
-def test_popularity_when_global_below_threshold_even_if_user_above():
-    with (
-        patch.object(rec, "get_total_interaction_count", return_value=10),
-        patch.object(rec, "get_user_interaction_count", return_value=15),
-        patch.object(rec, "get_popular_event_ids", return_value=[]),
-    ):
-        events, mode = rec.get_recommendations("testhash")
-        # global < 50, so CF must not activate
-        assert mode in ("popularity", "cold-start")
-        assert mode != "collaborative-filtering"
-
-
-# ── CF threshold gating ───────────────────────────────────────────────────────
-
-def test_cf_does_not_activate_below_global_threshold():
-    with (
-        patch.object(rec, "get_total_interaction_count", return_value=49),
-        patch.object(rec, "get_user_interaction_count", return_value=20),
-        patch.object(rec, "get_popular_event_ids", return_value=[]),
-    ):
-        _, mode = rec.get_recommendations("testhash")
-        assert mode != "collaborative-filtering"
-
-
-def test_cf_activates_above_both_thresholds():
-    rows = _make_interactions(n_global=60, n_user=15, user_id="testhash")
-    with (
-        patch.object(rec, "get_total_interaction_count", return_value=60),
-        patch.object(rec, "get_user_interaction_count", return_value=15),
-        patch.object(rec, "get_all_interactions", return_value=rows),
-    ):
-        _, mode = rec.get_recommendations("testhash")
-        assert mode == "collaborative-filtering"
-
-
-# ── Return shape ──────────────────────────────────────────────────────────────
-
-def test_recommendations_respect_limit():
-    with (
-        patch.object(rec, "get_total_interaction_count", return_value=0),
-        patch.object(rec, "get_user_interaction_count", return_value=0),
-        patch.object(rec, "get_popular_event_ids", return_value=[]),
-    ):
-        events, _ = rec.get_recommendations("testhash", limit=3)
-        assert len(events) <= 3
-
-
-def test_each_event_has_required_fields():
-    with (
-        patch.object(rec, "get_total_interaction_count", return_value=0),
-        patch.object(rec, "get_user_interaction_count", return_value=0),
-        patch.object(rec, "get_popular_event_ids", return_value=[]),
-    ):
-        events, _ = rec.get_recommendations("testhash")
-        assert events  # an empty list would make the loop below pass vacuously
-        for e in events:
-            assert "id" in e
-            assert "title" in e
-            assert "category" in e
-
-
-# ── Candidate cleanup (recommender PR 1) ──────────────────────────────────────
-
-def _with_catalog(catalog):
-    events.update_live_cache(catalog)
+    rec._stats = previous_stats
 
 
 def _event(event_id, title, category="social"):
@@ -132,34 +27,74 @@ def _event(event_id, title, category="social"):
             "date": "Nov 05, 2026", "description": "", "url": None}
 
 
-@pytest.mark.parametrize("user_count", [0, 5])  # cold start and popularity
-def test_staff_events_and_repeat_dates_are_never_recommended(user_count):
-    _with_catalog([
+def _click(event_id, category=None, series=None, user="me"):
+    return {"hashed_netid": user, "event_id": event_id, "category": category,
+            "series_key": series, "timestamp": NOW.isoformat()}
+
+
+def recommend(user_rows, major=None, limit=10):
+    with patch.object(rec, "get_user_interactions", return_value=user_rows):
+        return rec.get_recommendations("me", major=major, limit=limit)
+
+
+def test_cold_start_puts_the_major_first():
+    ranked, mode = recommend([], major="Computer Science", limit=8)
+    assert mode == "cold-start"
+    tech = [e for e in SAMPLE_EVENTS if e["category"] == "technology"]
+    assert [e["category"] for e in ranked[: len(tech)]] == ["technology"] * len(tech)
+    assert ranked[0]["reason"] == "Matches your major"
+    assert len(ranked) == 8
+
+
+def test_unknown_major_still_returns_a_full_list():
+    ranked, mode = recommend([], major="Underwater Basket Weaving", limit=5)
+    assert mode == "cold-start"
+    assert len(ranked) == 5
+
+
+def test_clicks_make_it_personalized_with_reasons():
+    ranked, mode = recommend([_click("evt-011", "arts", "spring art show student gallery")])
+    assert mode == "personalized"
+    assert ranked[0]["category"] == "arts"
+    assert ranked[0]["reason"].startswith("Because you liked Arts")
+
+
+def test_old_clicks_are_mapped_through_the_event_list():
+    # Stored before the category/series columns existed: looked up by event ID.
+    ranked, mode = recommend([_click("evt-011")])
+    assert mode == "personalized"
+    assert ranked[0]["category"] == "arts"
+
+
+def test_each_event_has_required_fields_and_limit():
+    ranked, _ = recommend([], limit=3)
+    assert len(ranked) == 3
+    for e in ranked:
+        assert {"id", "title", "category", "reason"} <= e.keys()
+
+
+@pytest.mark.parametrize("user_rows", [[], [_click("r1", "business", "resume workshop")]])
+def test_staff_events_and_repeat_dates_are_never_recommended(user_rows):
+    events.update_live_cache([
         _event("t1", "Campus Tour"),
         _event("s1", "Sponsored Research Virtual Office Hours for Faculty"),
         _event("t2", "Campus Tour"),
         _event("r1", "Resume Workshop", "business"),
     ])
-    with (
-        patch.object(rec, "get_total_interaction_count", return_value=0),
-        patch.object(rec, "get_user_interaction_count", return_value=user_count),
-        patch.object(rec, "get_popular_event_ids", return_value=[]),
-    ):
-        events_out, _ = rec.get_recommendations("testhash", limit=10)
-    assert [e["id"] for e in events_out] == ["t1", "r1"]
+    ranked, _ = recommend(user_rows)
+    assert sorted(e["id"] for e in ranked) == ["r1", "t1"]
 
 
-def test_popularity_counts_clicks_on_any_date_of_a_series():
-    _with_catalog([
-        _event("r1", "Resume Workshop", "business"),
-        _event("t1", "Campus Tour"),
-        _event("t2", "Campus Tour"),   # a later date of the same tour
-    ])
-    with (
-        patch.object(rec, "get_total_interaction_count", return_value=0),
-        patch.object(rec, "get_user_interaction_count", return_value=3),
-        patch.object(rec, "get_popular_event_ids", return_value=["t2"]),
-    ):
-        events_out, mode = rec.get_recommendations("testhash", limit=10)
-    assert mode == "popularity"
-    assert [e["id"] for e in events_out] == ["t1", "r1"]  # the tour's next date ranks first
+def test_refresh_stats_builds_aggregates():
+    rows = [_click("evt-011", "arts", "spring art show student gallery", user=f"u{i}") for i in range(3)]
+    with patch.object(rec, "fetch_all_interactions", return_value=rows):
+        assert rec.refresh_stats(now=NOW)
+    assert rec._stats.total_clicks == 3
+    assert rec._stats.popularity == {"spring art show student gallery": 1.0}
+
+
+def test_refresh_stats_keeps_previous_on_error():
+    rec._stats = InteractionStats(total_clicks=7, popularity={"x": 1.0}, similar={})
+    with patch.object(rec, "fetch_all_interactions", side_effect=RuntimeError("database down")):
+        assert not rec.refresh_stats(now=NOW)
+    assert rec._stats.total_clicks == 7

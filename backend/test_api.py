@@ -87,7 +87,7 @@ def _health_latency_while(monkeypatch, start_slow_request) -> float:
 
 def test_slow_recommendations_do_not_block_other_requests(monkeypatch):
     def slow_recommendations(*args, **kwargs):
-        time.sleep(1.0)  # stands in for Supabase queries + SVD training
+        time.sleep(1.0)  # stands in for the Supabase query
         return [], "popularity"
 
     monkeypatch.setattr(main, "get_recommendations", slow_recommendations)
@@ -101,7 +101,8 @@ def test_slow_interaction_logging_does_not_block_other_requests(monkeypatch):
         return True
 
     monkeypatch.setattr(main, "log_interaction", slow_log)
-    monkeypatch.setattr(events, "_cache", ([{"id": "e"}], {"e": {"id": "e"}}))
+    event = {"id": "e", "title": "Chess Club", "category": "social"}
+    monkeypatch.setattr(events, "_cache", ([event], {"e": event}))
     latency = _health_latency_while(monkeypatch, lambda c: c.post("/api/interactions", json={"event_id": "e"}))
     assert latency < 0.3
 
