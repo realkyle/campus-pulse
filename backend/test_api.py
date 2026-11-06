@@ -4,7 +4,9 @@ import time
 
 from fastapi.testclient import TestClient
 
+import events
 import main
+from auth import AuthenticatedUser, get_current_user
 
 # Not used as a context manager, so the startup event (the RSS/OpenAI polling loops) never runs.
 client = TestClient(main.app)
@@ -64,14 +66,22 @@ def _health_latency_while(monkeypatch, start_slow_request) -> float:
     monkeypatch.setattr(main, "poll_loop", idle_loop)
     monkeypatch.setattr(main, "events_loop", idle_loop)
 
-    with TestClient(main.app) as shared:
-        slow = threading.Thread(target=start_slow_request, args=(shared,))
-        slow.start()
-        time.sleep(0.2)  # let the slow request get going
-        began = time.perf_counter()
-        assert shared.get("/api/health").status_code == 200
-        latency = time.perf_counter() - began
-        slow.join()
+    # Sign the slow request in, so it reaches the slow code instead of failing
+    # fast with 401/503 (which would make the latency check prove nothing).
+    main.app.dependency_overrides[get_current_user] = lambda: AuthenticatedUser(sub="test-user", email="t@uw.edu")
+    slow_status: list[int] = []
+    try:
+        with TestClient(main.app) as shared:
+            slow = threading.Thread(target=lambda: slow_status.append(start_slow_request(shared).status_code))
+            slow.start()
+            time.sleep(0.2)  # let the slow request get going
+            began = time.perf_counter()
+            assert shared.get("/api/health").status_code == 200
+            latency = time.perf_counter() - began
+            slow.join()
+    finally:
+        main.app.dependency_overrides.clear()
+    assert slow_status == [200], "the slow request must actually run"
     return latency
 
 
@@ -81,9 +91,7 @@ def test_slow_recommendations_do_not_block_other_requests(monkeypatch):
         return [], "popularity"
 
     monkeypatch.setattr(main, "get_recommendations", slow_recommendations)
-    latency = _health_latency_while(
-        monkeypatch, lambda c: c.get("/api/recommendations", params={"hashed_netid": "x"})
-    )
+    latency = _health_latency_while(monkeypatch, lambda c: c.get("/api/recommendations"))
     assert latency < 0.3
 
 
@@ -93,9 +101,8 @@ def test_slow_interaction_logging_does_not_block_other_requests(monkeypatch):
         return True
 
     monkeypatch.setattr(main, "log_interaction", slow_log)
-    latency = _health_latency_while(
-        monkeypatch, lambda c: c.post("/api/interactions", json={"hashed_netid": "x", "event_id": "e"})
-    )
+    monkeypatch.setattr(events, "_cache", ([{"id": "e"}], {"e": {"id": "e"}}))
+    latency = _health_latency_while(monkeypatch, lambda c: c.post("/api/interactions", json={"event_id": "e"}))
     assert latency < 0.3
 
 

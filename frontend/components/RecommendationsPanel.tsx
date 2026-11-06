@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { API_URL } from "@/lib/config";
+import { fetchAsUser } from "@/lib/api";
 import { useWindowWidth } from "@/lib/useWindowWidth";
 import { colors } from "@/lib/tokens";
 
@@ -16,7 +16,6 @@ interface Event {
 }
 
 interface Props {
-  hashedNetid: string;
   major: string | null;
   onMajorChange: (major: string) => void;
 }
@@ -37,7 +36,7 @@ const MODE_LABEL: Record<string, string> = {
   "collaborative-filtering": "Personalized for you",
 };
 
-export default function RecommendationsPanel({ hashedNetid, major, onMajorChange }: Props) {
+export default function RecommendationsPanel({ major, onMajorChange }: Props) {
   const isMobile = useWindowWidth() < 768;
   const [events, setEvents] = useState<Event[]>([]);
   const [mode, setMode] = useState("");
@@ -49,40 +48,52 @@ export default function RecommendationsPanel({ hashedNetid, major, onMajorChange
   const [displayCount, setDisplayCount] = useState(10);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     fetchRecommendations();
-  }, [hashedNetid, major]);
+  }, [major]);
 
   async function fetchRecommendations() {
     setLoading(true);
     setDisplayCount(10);
     setSelectedCategory(null);
+    setError(null);
     try {
-      const params = new URLSearchParams({ hashed_netid: hashedNetid, limit: "200" });
+      const params = new URLSearchParams({ limit: "200" });
       if (major) params.set("major", major);
-      const res = await fetch(`${API_URL}/api/recommendations?${params}`);
+      const res = await fetchAsUser(`/api/recommendations?${params}`);
+      if (!res.ok) {
+        setEvents([]);
+        setError(
+          res.status === 401 ? "Your session expired. Please sign in again."
+          : res.status === 403 ? "For You is only available to UW accounts."
+          : "Recommendations are unavailable right now."
+        );
+        return;
+      }
       const json = await res.json();
       setEvents(json.events ?? []);
       setMode(json.mode ?? "");
     } catch {
       setEvents([]);
+      setError("Your session expired. Please sign in again.");
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleEventClick(event: Event) {
-    try {
-      await fetch(`${API_URL}/api/interactions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hashed_netid: hashedNetid, event_id: event.id }),
-      });
-    } catch {
-      // Non-critical — don't block the UI
-    }
-    setClickedIds((prev) => new Set(prev).add(event.id));
+  function handleEventClick(event: Event) {
+    // Open the link synchronously inside the click: browsers (notably Safari)
+    // block window.open after an await.
     if (event.url) window.open(event.url, "_blank", "noopener,noreferrer");
+    setClickedIds((prev) => new Set(prev).add(event.id));
+    // Recording the click is best-effort and must not delay or block the link.
+    fetchAsUser("/api/interactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event_id: event.id }),
+    }).catch(() => {});
   }
 
   function handleMajorSubmit(e: React.FormEvent) {
@@ -279,7 +290,7 @@ export default function RecommendationsPanel({ hashedNetid, major, onMajorChange
           </div>
         ) : filteredEvents.length === 0 ? (
           <div style={{ padding: 16, fontSize: 12, color: colors.textDimmer, textAlign: "center" }}>
-            {search ? `No events matching "${search}"` : "No events available right now."}
+            {error ?? (search ? `No events matching "${search}"` : "No events available right now.")}
           </div>
         ) : (
           filteredEvents.map((event) => {
