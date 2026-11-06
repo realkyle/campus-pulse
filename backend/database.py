@@ -72,6 +72,9 @@ def fetch_all_interactions() -> list[dict]:
             _get_client()
             .table("interactions")
             .select(INTERACTION_COLUMNS)
+            # id is a random UUID: sort by time first so pages are chronological
+            # and a click inserted mid-read lands at the end, not inside a page.
+            .order("timestamp")
             .order("id")
             .range(start, start + PAGE_SIZE - 1)
             .execute()

@@ -46,6 +46,7 @@ def test_fetch_all_reads_every_page(monkeypatch):
     use(monkeypatch, client)
     assert database.fetch_all_interactions() == rows
     assert [args for name, args, _ in client.calls if name == "range"] == [(0, 999), (1000, 1999), (2000, 2999)]
+    assert [args for name, args, _ in client.calls if name == "order"][:2] == [("timestamp",), ("id",)]
 
 
 def test_fetch_all_exact_page_boundary(monkeypatch):
