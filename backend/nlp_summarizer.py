@@ -32,6 +32,8 @@ Rules:
 - scope=other_campus: about a location at another UW campus (e.g. Seattle streets or buildings)
 - If no {CAMPUS_NAME} building is mentioned, use CAMPUS."""
 
+MODEL = "gpt-4o-mini"
+
 _client: OpenAI | None = None
 
 
@@ -76,7 +78,7 @@ def triage(raw_text: str, summary: AlertSummary) -> AlertTriage | None:
             f"Raw alert: {raw_text}"
         )
         response = _get_client().chat.completions.create(
-            model="gpt-4o-mini",
+            model=MODEL,
             messages=[
                 {"role": "system", "content": TRIAGE_PROMPT},
                 {"role": "user", "content": context},
@@ -103,7 +105,7 @@ def summarize(raw_text: str) -> tuple[AlertSummary | None, bool]:
     """
     try:
         response = _get_client().chat.completions.create(
-            model="gpt-4o-mini",
+            model=MODEL,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": f"Alert text: {raw_text}"},
