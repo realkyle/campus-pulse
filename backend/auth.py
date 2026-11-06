@@ -1,13 +1,18 @@
 """Verifies Auth0 access tokens and identifies the signed-in UW user (api/recommendations.md)."""
 import hashlib
+import logging
 import os
+import ssl
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Callable, Optional
 
+import certifi
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+logger = logging.getLogger(__name__)
 
 # Set by the Auth0 post-login Action (auth0/actions/uw-only-login.js).
 EMAIL_CLAIM = "https://campus-pulse/email"
@@ -20,6 +25,10 @@ class InvalidToken(Exception):
 
 class NotAllowed(Exception):
     """The token is valid, but the user isn't a UW account (→ 403)."""
+
+
+class VerificationUnavailable(Exception):
+    """The tenant's public keys couldn't be downloaded: a server-side problem (→ 503)."""
 
 
 @dataclass(frozen=True)
@@ -61,7 +70,14 @@ class TokenVerifier:
         self._issuer = f"https://{domain}/"
         self._audience = audience
         if signing_key_for is None:
-            jwks = jwt.PyJWKClient(f"https://{domain}/.well-known/jwks.json", cache_keys=True)
+            # certifi's CA bundle (the one httpx uses), so the download works on
+            # any machine; python.org Python on macOS fails with the system default.
+            jwks = jwt.PyJWKClient(
+                f"https://{domain}/.well-known/jwks.json",
+                cache_keys=True,
+                timeout=5,
+                ssl_context=ssl.create_default_context(cafile=certifi.where()),
+            )
             signing_key_for = lambda token: jwks.get_signing_key_from_jwt(token).key  # noqa: E731
         self._signing_key_for = signing_key_for
 
@@ -76,7 +92,9 @@ class TokenVerifier:
                 issuer=self._issuer,
                 options={"require": ["exp", "iss", "aud", "sub"]},
             )
-        except jwt.PyJWTError as e:  # includes PyJWKClientError (key lookup)
+        except jwt.PyJWKClientConnectionError as e:
+            raise VerificationUnavailable(str(e)) from e
+        except jwt.PyJWTError as e:  # bad signature, claims, or unknown key ID
             raise InvalidToken(str(e)) from e
 
         email = claims.get(EMAIL_CLAIM)
@@ -112,7 +130,13 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Sign in required", headers={"WWW-Authenticate": "Bearer"})
     try:
         return verifier.verify(credentials.credentials)
-    except InvalidToken:
+    except VerificationUnavailable as e:
+        logger.error("Can't verify tokens, key download failed: %s", e)
+        raise HTTPException(status_code=503, detail="Sign-in verification is temporarily unavailable")
+    except InvalidToken as e:
+        # The reason only, never the token itself.
+        logger.info("Rejected access token: %s", e)
         raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
     except NotAllowed as e:
+        logger.info("Refused non-UW access token")
         raise HTTPException(status_code=403, detail=str(e))

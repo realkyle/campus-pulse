@@ -171,6 +171,16 @@ def test_interaction_requires_token(recorded):
     assert client.post("/api/interactions", json={"event_id": "live-abc"}).status_code == 401
 
 
+def test_key_download_failure_is_503_not_401(recorded):
+    def unreachable(token):
+        raise jwt.PyJWKClientConnectionError("network down")
+
+    main.app.dependency_overrides[get_token_verifier] = lambda: TokenVerifier(DOMAIN, AUDIENCE, signing_key_for=unreachable)
+    response = client.get("/api/recommendations", headers=bearer(make_token()))
+    assert response.status_code == 503
+    assert "recommendations" not in recorded
+
+
 # ── Not configured ────────────────────────────────────────────────────────────
 
 def test_auth_not_configured_is_503_and_public_routes_still_work(monkeypatch):
