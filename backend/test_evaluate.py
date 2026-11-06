@@ -1,9 +1,9 @@
 """The offline evaluation harness on synthetic data with clear taste groups."""
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from evaluate_recommender import leave_last_out
 
-START = datetime(2026, 11, 1, tzinfo=timezone.utc)
+START = datetime(2026, 11, 1, tzinfo=UTC)
 TECH = ["hackathon", "web dev workshop", "ai talk", "cyber panel", "data night", "code club"]
 ARTS = ["art walk", "open mic", "film night", "gallery tour", "poetry slam", "dance show"]
 

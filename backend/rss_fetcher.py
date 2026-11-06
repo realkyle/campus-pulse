@@ -3,8 +3,8 @@ import hashlib
 import html
 import logging
 import re
-from datetime import datetime, timedelta, timezone
-from typing import Callable, Optional
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 
 import feedparser
 import httpx
@@ -36,15 +36,15 @@ def _plain_text(fragment: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def _published(entry) -> Optional[datetime]:
+def _published(entry) -> datetime | None:
     parsed = entry.get("published_parsed") or entry.get("updated_parsed")
     if not parsed:
         return None
-    return datetime.fromtimestamp(calendar.timegm(parsed), tz=timezone.utc)
+    return datetime.fromtimestamp(calendar.timegm(parsed), tz=UTC)
 
 
 def fetch_alerts(
-    now: Optional[datetime] = None,
+    now: datetime | None = None,
     get_text: Callable[[str], str] = _download,
 ) -> tuple[list[dict], bool]:
     """Return (recent alerts, feed_ok). Each alert has id, raw_text, published.
@@ -54,7 +54,7 @@ def fetch_alerts(
     up as "feed unavailable" instead of a healthy-looking empty list.
     `now` and `get_text` are injectable for tests.
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     try:
         feed = feedparser.parse(get_text(ALERT_FEED_URL))
     except Exception as e:

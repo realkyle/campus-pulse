@@ -9,7 +9,16 @@ from fastapi.testclient import TestClient
 import events
 import main
 from auth import EMAIL_CLAIM, TokenVerifier, get_token_verifier
-from fixtures.tokens import AUDIENCE, DOMAIN, ISSUER, OTHER_KEY, SUB, bearer, make_token, test_verifier
+from fixtures.tokens import (
+    AUDIENCE,
+    DOMAIN,
+    ISSUER,
+    OTHER_KEY,
+    SUB,
+    bearer,
+    make_token,
+    test_verifier,
+)
 
 client = TestClient(main.app)
 

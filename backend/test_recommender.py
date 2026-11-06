@@ -1,5 +1,5 @@
 """get_recommendations() and refresh_stats() with the database faked (contract: api/recommendations.md)."""
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
@@ -9,7 +9,7 @@ import recommender as rec
 from fixtures.sample_events import SAMPLE_EVENTS
 from scoring import InteractionStats
 
-NOW = datetime(2026, 11, 6, 12, tzinfo=timezone.utc)
+NOW = datetime(2026, 11, 6, 12, tzinfo=UTC)
 
 
 @pytest.fixture(autouse=True)

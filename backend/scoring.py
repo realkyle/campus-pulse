@@ -11,9 +11,9 @@ Replaces the earlier SVD model, which can't learn from clicks-only data: with ev
 """
 import math
 from collections import Counter, defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Callable, Optional
 
 from candidates import series_key
 
@@ -22,10 +22,10 @@ CO_CLICK_MIN_CLICKS = 50          # below this, co-click similarity is noise and
 POPULARITY_WINDOW = timedelta(days=7)
 
 # event_id → (series_key, category) for rows stored before those columns existed.
-Resolve = Callable[[str], Optional[tuple[str, str]]]
+Resolve = Callable[[str], tuple[str, str] | None]
 
 
-def series_and_category(row: dict, resolve: Resolve) -> Optional[tuple[str, str]]:
+def series_and_category(row: dict, resolve: Resolve) -> tuple[str, str] | None:
     """A click's (series_key, category): stored on the row, else looked up by event ID."""
     if row.get("series_key") and row.get("category"):
         return row["series_key"], row["category"]

@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
-from typing import Callable, Literal, Optional
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -28,11 +29,11 @@ class AlertsResponse(BaseModel):
 
 
 FetchAlerts = Callable[[], tuple[list[dict], bool]]
-Summarize = Callable[[str], tuple[Optional[AlertSummary], bool]]
-Triage = Callable[[str, AlertSummary], Optional[AlertTriage]]
+Summarize = Callable[[str], tuple[AlertSummary | None, bool]]
+Triage = Callable[[str, AlertSummary], AlertTriage | None]
 ResolveCoordinates = Callable[[str], tuple[float, float]]
 # (alert text, AI scope or None if the AI failed) → "campus" | "university_wide" | "other_campus"
-ScopeFor = Callable[[str, Optional[str]], str]
+ScopeFor = Callable[[str, str | None], str]
 
 
 class AlertPipeline:
@@ -70,14 +71,14 @@ class AlertPipeline:
         self._fallback_coordinates = fallback_coordinates
         self._scope_for = scope_for
         # alert ID → its pin, or None for "left out" (other campus)
-        self._results_by_id: dict[str, Optional[AlertPin]] = {}
+        self._results_by_id: dict[str, AlertPin | None] = {}
 
     def refresh(self) -> AlertsResponse:
         """Fetch the feed and return the current pins plus feed/AI health flags."""
         raw_alerts, feed_ok = self._fetch()
         ai_ok = True
         pins: list[AlertPin] = []
-        kept: dict[str, Optional[AlertPin]] = {}
+        kept: dict[str, AlertPin | None] = {}
 
         for raw in raw_alerts:
             alert_id = raw["id"]
@@ -97,12 +98,12 @@ class AlertPipeline:
         self._results_by_id = kept
         return AlertsResponse(
             alerts=pins,
-            last_updated=datetime.now(timezone.utc).isoformat(),
+            last_updated=datetime.now(UTC).isoformat(),
             ai_available=ai_ok,
             feed_available=feed_ok,
         )
 
-    def _summarized_pin(self, raw: dict, summary: AlertSummary) -> Optional[AlertPin]:
+    def _summarized_pin(self, raw: dict, summary: AlertSummary) -> AlertPin | None:
         """The pin for a summarized alert, or None if it's about another campus."""
         scope = self._scope_for(raw["raw_text"], summary.scope)
         if scope == "other_campus":

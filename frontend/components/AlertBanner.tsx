@@ -1,6 +1,7 @@
 "use client";
 
 import { colors } from "@/lib/tokens";
+import { useNow } from "@/lib/useNow";
 
 interface AlertBannerProps {
   aiAvailable: boolean;
@@ -9,8 +10,9 @@ interface AlertBannerProps {
 }
 
 export default function AlertBanner({ aiAvailable, feedAvailable, lastUpdated }: AlertBannerProps) {
+  const now = useNow(60_000); // re-renders once a minute so "N min ago" stays current
   const minutesAgo = lastUpdated
-    ? Math.floor((Date.now() - new Date(lastUpdated).getTime()) / 60000)
+    ? Math.max(0, Math.floor((now - new Date(lastUpdated).getTime()) / 60000))
     : null;
 
   return (

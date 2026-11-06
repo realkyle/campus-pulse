@@ -1,6 +1,6 @@
 """Tests for the admin-only demo alert endpoints (contract: api/demo.md)."""
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -22,7 +22,7 @@ class FakeClock:
     """A clock the test moves forward by hand."""
 
     def __init__(self) -> None:
-        self.now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        self.now = datetime(2026, 1, 1, tzinfo=UTC)
 
     def __call__(self) -> datetime:
         return self.now

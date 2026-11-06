@@ -1,5 +1,4 @@
 import re
-from typing import Optional
 
 # Campus identity: used in the AI prompt and to recognize alerts about this campus.
 CAMPUS_NAME = "UW Bothell"
@@ -81,7 +80,7 @@ def has_campus_evidence(text: str) -> bool:
     return any(re.search(rf"\b{re.escape(term)}\b", text, re.IGNORECASE) for term in CAMPUS_EVIDENCE)
 
 
-def effective_scope(text: str, ai_scope: Optional[str]) -> str:
+def effective_scope(text: str, ai_scope: str | None) -> str:
     """The scope the map uses: the AI's label, checked against the text.
 
     - Naming the campus always makes it a campus alert.

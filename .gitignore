@@ -24,3 +24,6 @@ docs/
 
 # Local working agreement for Claude Code (kept private)
 CLAUDE.md
+
+# Ruff
+.ruff_cache/

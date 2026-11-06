@@ -3,9 +3,10 @@ import hashlib
 import logging
 import os
 import ssl
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Callable, Optional
+from typing import Any
 
 import certifi
 import jwt
@@ -67,7 +68,7 @@ class TokenVerifier:
         self,
         domain: str,
         audience: str,
-        signing_key_for: Optional[Callable[[str], Any]] = None,
+        signing_key_for: Callable[[str], Any] | None = None,
     ) -> None:
         self._issuer = f"https://{domain}/"
         self._audience = audience
@@ -129,7 +130,7 @@ _bearer = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     verifier: TokenVerifier = Depends(get_token_verifier),
 ) -> AuthenticatedUser:
     """FastAPI dependency for protected routes: the user, taken only from the token."""
@@ -139,11 +140,14 @@ def get_current_user(
         return verifier.verify(credentials.credentials)
     except VerificationUnavailable as e:
         logger.error("Can't verify tokens, key download failed: %s", e)
-        raise HTTPException(status_code=503, detail="Sign-in verification is temporarily unavailable")
+        # "from None": the client gets a clean HTTP error; the cause is in the log above.
+        raise HTTPException(status_code=503, detail="Sign-in verification is temporarily unavailable") from None
     except InvalidToken as e:
         # The reason only, never the token itself.
         logger.info("Rejected access token: %s", e)
-        raise HTTPException(status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(
+            status_code=401, detail="Invalid or expired token", headers={"WWW-Authenticate": "Bearer"}
+        ) from None
     except NotAllowed as e:
         logger.info("Refused non-UW access token")
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from None

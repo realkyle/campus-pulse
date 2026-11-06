@@ -51,38 +51,39 @@ export default function RecommendationsPanel({ major, onMajorChange }: Props) {
 
   const [error, setError] = useState<string | null>(null);
 
+  // The parent remounts this panel (key={major}) when the major changes, so every
+  // piece of state above starts fresh; this effect only loads. State is set only
+  // after the response, and not at all if the panel was replaced meanwhile.
   useEffect(() => {
-    fetchRecommendations();
+    let cancelled = false;
+    const params = new URLSearchParams({ limit: "200" });
+    if (major) params.set("major", major);
+    fetchAsUser(`/api/recommendations?${params}`)
+      .then(async (res) => {
+        if (cancelled) return;
+        if (!res.ok) {
+          setError(
+            res.status === 401 ? "Your session expired. Please sign in again."
+            : res.status === 403 ? "For You is only available to UW accounts."
+            : "Recommendations are unavailable right now."
+          );
+          return;
+        }
+        const json = await res.json();
+        if (cancelled) return;
+        setEvents(json.events ?? []);
+        setMode(json.mode ?? "");
+      })
+      .catch(() => {
+        if (!cancelled) setError("Your session expired. Please sign in again.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [major]);
-
-  async function fetchRecommendations() {
-    setLoading(true);
-    setDisplayCount(10);
-    setSelectedCategory(null);
-    setError(null);
-    try {
-      const params = new URLSearchParams({ limit: "200" });
-      if (major) params.set("major", major);
-      const res = await fetchAsUser(`/api/recommendations?${params}`);
-      if (!res.ok) {
-        setEvents([]);
-        setError(
-          res.status === 401 ? "Your session expired. Please sign in again."
-          : res.status === 403 ? "For You is only available to UW accounts."
-          : "Recommendations are unavailable right now."
-        );
-        return;
-      }
-      const json = await res.json();
-      setEvents(json.events ?? []);
-      setMode(json.mode ?? "");
-    } catch {
-      setEvents([]);
-      setError("Your session expired. Please sign in again.");
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function handleEventClick(event: Event) {
     // Open the link synchronously inside the click: browsers (notably Safari)

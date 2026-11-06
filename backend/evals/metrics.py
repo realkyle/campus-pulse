@@ -10,15 +10,15 @@ On a safety map, errors aren't equal. Four are reported as critical:
 - wrong_pin:    another campus's incident shown as a pin on this map
 """
 from collections import defaultdict
-from typing import Callable, Optional
+from collections.abc import Callable
 
 FIELDS = ("severity", "scope", "building")
 
 
 def evaluate(
     cases: list[dict],
-    answers: dict[str, Optional[dict]],
-    scope_for: Callable[[str, Optional[str]], str],
+    answers: dict[str, dict | None],
+    scope_for: Callable[[str, str | None], str],
 ) -> dict:
     """Accuracy per field, severity confusion matrix, critical errors and every failure.
 

@@ -3,32 +3,37 @@ import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from typing import Literal, Optional
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
-logger = logging.getLogger(__name__)
+from datetime import UTC, datetime
+from typing import Literal
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from building_coords import BUILDING_COORDS, CAMPUS_CENTER, effective_scope, resolve_coordinates
-from rss_fetcher import fetch_alerts
 from alert_pipeline import AlertPin, AlertPipeline, AlertsResponse
 from auth import AuthenticatedUser, get_current_user
-from demo_pins import DemoCapacityError, DemoPinStore
-from nlp_summarizer import AlertSummary, summarize, triage
-from database import log_interaction
-from candidates import series_key
-from recommender import get_recommendations, refresh_stats
-from events_fetcher import fetch_live_events
-from events import get_all_events, get_event_by_id, update_live_cache
+from building_coords import (
+    BUILDING_COORDS,
+    CAMPUS_CENTER,
+    effective_scope,
+    resolve_coordinates,
+)
 from bus_fetcher import BusBoard
+from candidates import series_key
+from database import log_interaction
+from demo_pins import DemoCapacityError, DemoPinStore
+from events import get_all_events, get_event_by_id, update_live_cache
+from events_fetcher import fetch_live_events
+from nlp_summarizer import AlertSummary, summarize, triage
+from recommender import get_recommendations, refresh_stats
+from rss_fetcher import fetch_alerts
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -60,7 +65,7 @@ app.add_middleware(
 
 _cache: AlertsResponse = AlertsResponse(
     alerts=[],
-    last_updated=datetime.now(timezone.utc).isoformat(),
+    last_updated=datetime.now(UTC).isoformat(),
     ai_available=True,
     feed_available=True,
 )
@@ -179,7 +184,7 @@ async def health() -> dict:
 @app.get("/api/recommendations")
 def recommendations(
     user: AuthenticatedUser = Depends(get_current_user),
-    major: Optional[str] = None,
+    major: str | None = None,
     limit: int = Query(default=10, ge=1, le=200),
 ) -> dict:
     events, mode = get_recommendations(user.user_hash, major=major, limit=limit)
@@ -243,14 +248,14 @@ def trigger_demo(
         recommended_action=action,
         scope="campus",
         coordinates=list(resolve_coordinates(building)),
-        published=datetime.now(timezone.utc).isoformat(),
+        published=datetime.now(UTC).isoformat(),
         headline=headline,
         safety_brief=safety_brief,
     )
     try:
         demo_pins.add(pin_id, pin)
     except DemoCapacityError:
-        raise HTTPException(status_code=429, detail="Too many active demo alerts")
+        raise HTTPException(status_code=429, detail="Too many active demo alerts") from None
     return {"status": "ok", "pin_id": pin_id, "building": building, "severity": severity, "expires_in": demo_pins.ttl_seconds}
 
 
