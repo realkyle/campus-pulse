@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from building_coords import BUILDING_COORDS, CAMPUS_CENTER, resolve_coordinates
+from building_coords import BUILDING_COORDS, CAMPUS_CENTER, CAMPUS_KEYWORDS, resolve_coordinates
 from rss_fetcher import fetch_alerts
 from alert_pipeline import AlertPin, AlertPipeline, AlertsResponse
 from demo_pins import DemoCapacityError, DemoPinStore
@@ -95,6 +95,7 @@ alert_pipeline = AlertPipeline(
     triage=triage,
     resolve_coordinates=resolve_coordinates,
     fallback_coordinates=CAMPUS_CENTER,
+    campus_keywords=CAMPUS_KEYWORDS,
 )
 
 
@@ -232,6 +233,7 @@ def trigger_demo(
         incident_type=incident_type,
         severity=severity,
         recommended_action=action,
+        scope="campus",
         coordinates=list(resolve_coordinates(building)),
         published=datetime.now(timezone.utc).isoformat(),
         headline=headline,

@@ -1,10 +1,17 @@
-from typing import Optional
+import re
 
-# UW Bothell campus center — used as fallback pin location
+# Campus identity: used in the AI prompt and to recognize alerts about this campus.
+CAMPUS_NAME = "UW Bothell"
+CAMPUS_KEYWORDS = ("bothell",)
+
+# Campus center: fallback pin location
 CAMPUS_CENTER = (47.75927, -122.19120)
 
-# Keyed by common abbreviations and full names that the NLP model may return.
-# Coordinates are (lat, lng).
+# Building codes the AI may answer with (the prompt is built from this list, so
+# the two can't drift apart). Each must be a key of BUILDING_COORDS.
+BUILDING_CODES = ("UW1", "UW2", "DISC", "LIB", "ARC", "HH", "NCH", "CC")
+
+# Keyed by codes and full names. Coordinates are (lat, lng).
 BUILDING_COORDS: dict[str, tuple[float, float]] = {
     "UW1": (47.75884, -122.19067),
     "UW2": (47.75872, -122.19133),
@@ -25,11 +32,18 @@ BUILDING_COORDS: dict[str, tuple[float, float]] = {
 
 
 def resolve_coordinates(building_name: str) -> tuple[float, float]:
+    """Map a building code or name to (lat, lng); unknown names → campus center."""
     key = building_name.strip().upper()
     if key in BUILDING_COORDS:
         return BUILDING_COORDS[key]
-    # Partial match fallback
+    # A known name appearing as whole words, e.g. "NEAR THE LIBRARY". Whole words
+    # so that "UW" doesn't resolve to UW1.
     for name, coords in BUILDING_COORDS.items():
-        if key in name or name in key:
+        if re.search(rf"\b{re.escape(name)}\b", key):
             return coords
     return CAMPUS_CENTER
+
+
+def mentions_campus(text: str) -> bool:
+    """True if the text names this campus (whole word, case-insensitive)."""
+    return any(re.search(rf"\b{re.escape(k)}\b", text, re.IGNORECASE) for k in CAMPUS_KEYWORDS)

@@ -1,27 +1,36 @@
 import json
 import logging
 import os
+from typing import Literal
+
+import openai
 from openai import OpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
+
+from building_coords import BUILDING_CODES, CAMPUS_NAME
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are a campus safety alert parser for UW Bothell.
+SYSTEM_PROMPT = f"""You are a campus safety alert parser for {CAMPUS_NAME}, one of several University of Washington campuses.
 Given raw alert text, return ONLY a valid JSON object — no markdown, no extra text.
 
 JSON schema:
-{
-  "building_name": "<abbreviation: UW1|UW2|DISC|STEM|LIB|CAB|HH|NCH|CAMPUS>",
+{{
+  "building_name": "<{"|".join(BUILDING_CODES)}|CAMPUS>",
   "incident_type": "<e.g. Police Activity|Medical Emergency|Fire|Suspicious Person|Weather|Utility Outage|All-Clear>",
   "severity": "<low|medium|high>",
-  "recommended_action": "<concise student instruction, max 20 words>"
-}
+  "recommended_action": "<concise student instruction, max 20 words>",
+  "scope": "<campus|university_wide|other_campus>"
+}}
 
 Rules:
 - severity=high: active threat, police, fire, evacuation
 - severity=medium: medical, suspicious activity, utility outage
 - severity=low: all-clear, informational, minor disruption
-- If no specific building is mentioned, use CAMPUS."""
+- scope=campus: the incident is at {CAMPUS_NAME}
+- scope=university_wide: affects all UW campuses (e.g. system tests, drills, weather or smoke advisories)
+- scope=other_campus: about a location at another UW campus (e.g. Seattle streets or buildings)
+- If no {CAMPUS_NAME} building is mentioned, use CAMPUS."""
 
 _client: OpenAI | None = None
 
@@ -33,7 +42,7 @@ def _get_client() -> OpenAI:
     return _client
 
 
-TRIAGE_PROMPT = """You are a campus safety communications officer for UW Bothell.
+TRIAGE_PROMPT = f"""You are a campus safety communications officer for {CAMPUS_NAME}.
 A high-severity emergency alert has just been issued. Write two things:
 
 1. "headline": A single urgent sentence (max 12 words) for a push notification.
@@ -47,6 +56,8 @@ class AlertSummary(BaseModel):
     incident_type: str
     severity: str
     recommended_action: str
+    # If the model omits it, list the alert without a pin rather than hide or misplace it.
+    scope: Literal["campus", "university_wide", "other_campus"] = "university_wide"
 
 
 class AlertTriage(BaseModel):
@@ -82,9 +93,13 @@ def triage(raw_text: str, summary: AlertSummary) -> AlertTriage | None:
 
 
 def summarize(raw_text: str) -> tuple[AlertSummary | None, bool]:
-    """
-    Returns (summary, ai_available).
-    summary is None only on hard parse failure; ai_available=False on API error.
+    """Ask the AI to structure one alert. Returns (summary, ai_available).
+
+    The two failure kinds are reported differently on purpose:
+    - OpenAI unreachable (network, auth, outage, missing key) → (None, False):
+      the frontend warns that AI summaries are down.
+    - A malformed answer (bad JSON, missing field) → (None, True): logged, and
+      the alert falls back to raw text, but it isn't an outage.
     """
     try:
         response = _get_client().chat.completions.create(
@@ -97,13 +112,17 @@ def summarize(raw_text: str) -> tuple[AlertSummary | None, bool]:
             temperature=0,
             max_tokens=200,
         )
-        content = response.choices[0].message.content.strip()
-        data = json.loads(content)
-        summary = AlertSummary(**data)
-        # Normalize severity
-        summary.severity = summary.severity.lower()
-        if summary.severity not in ("low", "medium", "high"):
-            summary.severity = "medium"
-        return summary, True
-    except Exception:
+    except (openai.OpenAIError, KeyError) as e:  # KeyError: OPENAI_API_KEY not set
+        logger.error("OpenAI unavailable: %r", e)
         return None, False
+
+    try:
+        summary = AlertSummary(**json.loads(response.choices[0].message.content.strip()))
+    except (json.JSONDecodeError, ValidationError, TypeError) as e:
+        logger.warning("Unusable AI answer for alert: %s", e)
+        return None, True
+
+    summary.severity = summary.severity.lower()
+    if summary.severity not in ("low", "medium", "high"):
+        summary.severity = "medium"
+    return summary, True

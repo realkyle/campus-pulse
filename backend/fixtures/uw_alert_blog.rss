@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+	<title>UW Alert Blog</title>
+	<link>https://alerts.example.edu</link>
+	<description>Emergency alerts</description>
+	<lastBuildDate>Thu, 05 Nov 2026 17:56:15 +0000</lastBuildDate>
+	<item>
+		<title>UW Alert &#8211; Police activity near UW1</title>
+		<link>https://alerts.example.edu/101/</link>
+		<pubDate>Thu, 05 Nov 2026 17:56:15 +0000</pubDate>
+		<category><![CDATA[General Information]]></category>
+		<guid isPermaLink="false">https://alerts.example.edu/?p=101</guid>
+		<description><![CDATA[Police are responding near UW1 on the Bothell campus. [&#8230;]]]></description>
+		<content:encoded><![CDATA[<p><strong>UPDATE at 10:15 a.m.:</strong> Police are responding near UW1 on the Bothell campus.</p><p>Avoid the area &amp; follow police instructions.</p>]]></content:encoded>
+	</item>
+	<item>
+		<title>UW Alert test and earthquake drill</title>
+		<link>https://alerts.example.edu/102/</link>
+		<pubDate>Thu, 05 Nov 2026 09:00:00 +0000</pubDate>
+		<category><![CDATA[General Information]]></category>
+		<guid isPermaLink="false">https://alerts.example.edu/?p=102</guid>
+		<description><![CDATA[All UW campuses will test UW Alert today. [&#8230;]]]></description>
+		<content:encoded><![CDATA[<p>All UW campuses will test UW Alert today at 10 a.m. Practice Drop, Cover and Hold On.</p>]]></content:encoded>
+	</item>
+	<item>
+		<title>UW Advisory &#8211; Street closed after collision</title>
+		<link>https://alerts.example.edu/103/</link>
+		<pubDate>Wed, 04 Nov 2026 12:00:00 +0000</pubDate>
+		<category><![CDATA[General Information]]></category>
+		<guid isPermaLink="false">https://alerts.example.edu/?p=103</guid>
+		<description><![CDATA[A street near another campus is closed. [&#8230;]]]></description>
+		<content:encoded><![CDATA[<p>Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. Crews remain on scene while the area is cleared. </p>]]></content:encoded>
+	</item>
+	<item>
+		<title>UW Alert &#8211; Hazardous materials response</title>
+		<link>https://alerts.example.edu/104/</link>
+		<pubDate>Tue, 22 Sep 2026 15:00:00 +0000</pubDate>
+		<category><![CDATA[General Information]]></category>
+		<guid isPermaLink="false">https://alerts.example.edu/?p=104</guid>
+		<description><![CDATA[An old incident that must not appear. [&#8230;]]]></description>
+		<content:encoded><![CDATA[<p>An old incident that must not appear.</p>]]></content:encoded>
+	</item>
+</channel>
+</rss>
