@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<rss xmlns:x-trumba="http://schemas.trumba.com/rss/x-trumba" version="2.0">
+	<channel>
+		<title>Campus Events</title>
+		<item>
+			<title>Resume Workshop</title>
+			<description>Thursday, Nov. 5, 2026, 10&amp;nbsp;&amp;ndash;&amp;nbsp;11&amp;nbsp;a.m.&amp;nbsp;PST &lt;br/&gt;&lt;br/&gt;Bring a draft resume for career advice. &lt;a href=&quot;https://uw.joinhandshake.com/stu/events/12345?ref=cat&quot; target=&quot;_blank&quot;&gt;Register in Handshake&lt;/a&gt;&lt;br/&gt;&lt;br/&gt;&lt;b&gt;Event interval&lt;/b&gt;:&amp;nbsp;Single day event &lt;br/&gt;&lt;b&gt;Location Type&lt;/b&gt;:&amp;nbsp;In-person &lt;br/&gt;&lt;b&gt;Campus location&lt;/b&gt;:&amp;nbsp;Founder&amp;#39;s Hall (UW1) &lt;br/&gt;</description>
+			<link>https://calendar.example.edu/event?eventid=1001</link>
+			<category>2026/11/05 (Thu)</category>
+			<guid isPermaLink="false">http://uid.trumba.com/event/1001</guid>
+		</item>
+		<item>
+			<title>Intramural Sports Signups</title>
+			<description>Saturday, Nov. 7, 2026, 10&amp;nbsp;&amp;ndash;&amp;nbsp;11&amp;nbsp;a.m.&amp;nbsp;PST &lt;br/&gt;&lt;br/&gt;Join a team.&lt;br/&gt;&lt;br/&gt;&lt;b&gt;Event interval&lt;/b&gt;:&amp;nbsp;Single day event &lt;br/&gt;&lt;b&gt;Location Type&lt;/b&gt;:&amp;nbsp;In-person &lt;br/&gt;&lt;b&gt;Campus location&lt;/b&gt;:&amp;nbsp;Activities &amp;amp; Recreation Center (ARC) &lt;br/&gt;</description>
+			<link>https://calendar.example.edu/event?eventid=2001</link>
+			<category>2026/11/07 (Sat)</category>
+			<guid isPermaLink="false">http://uid.trumba.com/event/2001</guid>
+		</item>
+	</channel>
+</rss>

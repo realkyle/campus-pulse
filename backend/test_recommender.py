@@ -1,7 +1,17 @@
 from unittest.mock import patch
 import pytest
 
+import events
 import recommender as rec
+from fixtures.sample_events import SAMPLE_EVENTS
+
+
+@pytest.fixture(autouse=True)
+def sample_catalog():
+    """The app serves no events until the live calendar loads, so load the samples."""
+    events.update_live_cache(SAMPLE_EVENTS)
+    yield
+    events.update_live_cache([])
 
 
 def _make_interactions(n_global: int, n_user: int, user_id: str = "testhash") -> list[dict]:
