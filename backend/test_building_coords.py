@@ -42,3 +42,21 @@ def test_partial_match():
     # "UW1" is contained in a key — should resolve to UW1 coords, not fallback
     result = resolve_coordinates("UW1 BUILDING")
     assert result != CAMPUS_CENTER
+
+
+def test_partial_match_needs_whole_words():
+    # "UW" is not UW1, and an unrelated word containing a code doesn't match it.
+    assert resolve_coordinates("UW") == CAMPUS_CENTER
+    assert resolve_coordinates("BLIBRARY ANNEX") == CAMPUS_CENTER
+    assert resolve_coordinates("NEAR THE LIBRARY") == resolve_coordinates("LIB")
+
+
+def test_every_prompt_code_has_coordinates():
+    from building_coords import BUILDING_CODES, BUILDING_COORDS
+    assert all(code in BUILDING_COORDS for code in BUILDING_CODES)
+
+
+def test_mentions_campus_whole_word():
+    from building_coords import mentions_campus
+    assert mentions_campus("Police near UW1 on the Bothell campus")
+    assert not mentions_campus("Alert at all campuses")

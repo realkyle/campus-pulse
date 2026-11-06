@@ -212,7 +212,7 @@ export default function HomePage() {
                       <span style={{ width: 8, height: 8, borderRadius: "50%", background: sevColor, flexShrink: 0, marginTop: 4 }} />
                       <div>
                         <div style={{ fontSize: 12, fontWeight: 600, color: colors.textPrimary, marginBottom: 2 }}>
-                          {alert.incident_type} — {alert.building_name}
+                          {alert.incident_type} — {alert.scope === "university" ? "All UW campuses" : alert.building_name}
                         </div>
                         <div style={{ fontSize: 11, color: colors.textMuted, lineHeight: 1.5 }}>
                           {alert.raw_text.length > 100 ? alert.raw_text.slice(0, 100) + "…" : alert.raw_text}

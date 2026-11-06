@@ -1,5 +1,6 @@
+import re
 from datetime import datetime, timezone
-from typing import Callable, Optional
+from typing import Callable, Literal, Optional
 
 from pydantic import BaseModel
 
@@ -13,7 +14,8 @@ class AlertPin(BaseModel):
     incident_type: str
     severity: str                    # low | medium | high
     recommended_action: str
-    coordinates: list[float]         # [lat, lng]
+    scope: Literal["campus", "university"] = "campus"
+    coordinates: list[float] | None  # [lat, lng]; None = university-wide, listed but not pinned
     published: str
     headline: str | None = None      # smart triage — high severity only
     safety_brief: str | None = None  # smart triage — high severity only
@@ -35,10 +37,15 @@ ResolveCoordinates = Callable[[str], tuple[float, float]]
 class AlertPipeline:
     """Turns the raw alert feed into map pins, calling the AI only for new alerts.
 
-    Each alert's ID is a hash of its text, so a pin built from a successful AI
-    summary is reused for as long as that alert stays in the feed. Fallback pins
-    (AI failed) are not stored, so the next refresh tries the AI again. Alerts
-    that leave the feed are forgotten, which keeps memory bounded.
+    Each alert's ID is a hash of its text, so a result built from a successful
+    AI summary is reused for as long as that alert stays in the feed, including
+    the decision to leave out an alert about another campus. Fallback pins (AI
+    failed) are not stored, so the next refresh tries the AI again. Alerts that
+    leave the feed are forgotten, which keeps memory bounded.
+
+    Scope: an alert that names this campus is pinned (whatever the AI says);
+    a university-wide one is listed without coordinates; one about another
+    campus is left out.
 
     The fetch, AI and geocoding steps are injected so tests can use fakes.
     refresh() blocks on network calls; call it from a worker thread, and never
@@ -52,34 +59,42 @@ class AlertPipeline:
         triage: Triage,
         resolve_coordinates: ResolveCoordinates,
         fallback_coordinates: tuple[float, float],
+        campus_keywords: tuple[str, ...],
     ) -> None:
         self._fetch = fetch
         self._summarize = summarize
         self._triage = triage
         self._resolve_coordinates = resolve_coordinates
         self._fallback_coordinates = fallback_coordinates
-        self._pins_by_id: dict[str, AlertPin] = {}
+        self._campus_pattern = re.compile(
+            r"\b(?:" + "|".join(re.escape(k) for k in campus_keywords) + r")\b", re.IGNORECASE
+        )
+        # alert ID → its pin, or None for "left out" (other campus)
+        self._results_by_id: dict[str, Optional[AlertPin]] = {}
 
     def refresh(self) -> AlertsResponse:
         """Fetch the feed and return the current pins plus feed/AI health flags."""
         raw_alerts, feed_ok = self._fetch()
         ai_ok = True
         pins: list[AlertPin] = []
-        kept: dict[str, AlertPin] = {}
+        kept: dict[str, Optional[AlertPin]] = {}
 
         for raw in raw_alerts:
-            pin = kept.get(raw["id"]) or self._pins_by_id.get(raw["id"])
-            if pin is None:
+            alert_id = raw["id"]
+            if alert_id in kept or alert_id in self._results_by_id:
+                pin = kept[alert_id] if alert_id in kept else self._results_by_id[alert_id]
+            else:
                 summary, ai_available = self._summarize(raw["raw_text"])
                 ai_ok = ai_ok and ai_available
                 if summary is None:
                     pins.append(self._fallback_pin(raw))
                     continue
                 pin = self._summarized_pin(raw, summary)
-            kept[raw["id"]] = pin
-            pins.append(pin)
+            kept[alert_id] = pin
+            if pin is not None:
+                pins.append(pin)
 
-        self._pins_by_id = kept
+        self._results_by_id = kept
         return AlertsResponse(
             alerts=pins,
             last_updated=datetime.now(timezone.utc).isoformat(),
@@ -87,7 +102,16 @@ class AlertPipeline:
             feed_available=feed_ok,
         )
 
-    def _summarized_pin(self, raw: dict, summary: AlertSummary) -> AlertPin:
+    def _summarized_pin(self, raw: dict, summary: AlertSummary) -> Optional[AlertPin]:
+        """The pin for a summarized alert, or None if it's about another campus."""
+        if self._campus_pattern.search(raw["raw_text"]):
+            scope = "campus"
+        elif summary.scope == "campus":
+            scope = "campus"
+        elif summary.scope == "university_wide":
+            scope = "university"
+        else:
+            return None
         headline = None
         safety_brief = None
         if summary.severity == "high":
@@ -102,7 +126,8 @@ class AlertPipeline:
             incident_type=summary.incident_type,
             severity=summary.severity,
             recommended_action=summary.recommended_action,
-            coordinates=list(self._resolve_coordinates(summary.building_name)),
+            scope=scope,
+            coordinates=list(self._resolve_coordinates(summary.building_name)) if scope == "campus" else None,
             published=raw["published"],
             headline=headline,
             safety_brief=safety_brief,
@@ -110,7 +135,9 @@ class AlertPipeline:
 
     def _fallback_pin(self, raw: dict) -> AlertPin:
         # Without the AI we can't place or grade the alert, so show its raw text
-        # at the campus center rather than hide it.
+        # rather than hide it: at the campus center if it names this campus,
+        # otherwise in the list only (it may not be about this campus at all).
+        on_campus = bool(self._campus_pattern.search(raw["raw_text"]))
         return AlertPin(
             id=raw["id"],
             raw_text=raw["raw_text"],
@@ -118,6 +145,7 @@ class AlertPipeline:
             incident_type="Alert",
             severity="medium",
             recommended_action="See raw alert text for details.",
-            coordinates=list(self._fallback_coordinates),
+            scope="campus" if on_campus else "university",
+            coordinates=list(self._fallback_coordinates) if on_campus else None,
             published=raw["published"],
         )

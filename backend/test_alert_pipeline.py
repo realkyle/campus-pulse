@@ -21,8 +21,9 @@ class FakeFeed:
 class FakeAI:
     """Stands in for summarize() and triage(); counts calls and can fail on demand."""
 
-    def __init__(self, severity: str = "medium") -> None:
+    def __init__(self, severity: str = "medium", scope: str = "campus") -> None:
         self.severity = severity
+        self.scope = scope
         self.fail = False
         self.summarize_calls: list[str] = []
         self.triage_calls: list[str] = []
@@ -33,7 +34,7 @@ class FakeAI:
             return None, False
         return AlertSummary(
             building_name="UW1", incident_type="Police Activity",
-            severity=self.severity, recommended_action="Avoid the area.",
+            severity=self.severity, recommended_action="Avoid the area.", scope=self.scope,
         ), True
 
     def triage(self, raw_text: str, summary: AlertSummary):
@@ -48,6 +49,7 @@ def make_pipeline(feed: FakeFeed, ai: FakeAI) -> AlertPipeline:
         triage=ai.triage,
         resolve_coordinates=lambda building: (1.0, 2.0),
         fallback_coordinates=CENTER,
+        campus_keywords=("bothell",),
     )
 
 
@@ -89,15 +91,15 @@ def test_alerts_gone_from_feed_are_forgotten():
 
 
 def test_ai_failure_gives_fallback_pin_and_retries_next_time():
-    feed, ai = FakeFeed([raw("a")]), FakeAI()
+    feed, ai = FakeFeed([raw("a", "Police activity near UW1 on the Bothell campus.")]), FakeAI()
     ai.fail = True
     pipeline = make_pipeline(feed, ai)
 
     failed = pipeline.refresh()
     pin = failed.alerts[0]
     assert failed.ai_available is False
-    assert (pin.building_name, pin.severity, pin.coordinates) == ("CAMPUS", "medium", list(CENTER))
-    assert pin.raw_text == "Police activity near UW1."
+    assert (pin.building_name, pin.severity, pin.scope, pin.coordinates) == ("CAMPUS", "medium", "campus", list(CENTER))
+    assert pin.raw_text == "Police activity near UW1 on the Bothell campus."
 
     ai.fail = False
     recovered = pipeline.refresh()
@@ -128,3 +130,36 @@ def test_feed_status_is_passed_through():
     result = make_pipeline(feed, ai).refresh()
     assert result.feed_available is False
     assert result.alerts == []
+
+
+# ── Scope ─────────────────────────────────────────────────────────────────────
+
+def test_campus_alert_is_pinned():
+    pin = make_pipeline(FakeFeed([raw("a")]), FakeAI(scope="campus")).refresh().alerts[0]
+    assert (pin.scope, pin.coordinates) == ("campus", [1.0, 2.0])
+
+
+def test_university_wide_alert_is_listed_without_a_pin():
+    pin = make_pipeline(FakeFeed([raw("a", "Earthquake drill at all campuses.")]), FakeAI(scope="university_wide")).refresh().alerts[0]
+    assert (pin.scope, pin.coordinates) == ("university", None)
+
+
+def test_other_campus_alert_is_left_out_and_not_reanalyzed():
+    feed, ai = FakeFeed([raw("a", "Street closed near another campus.")]), FakeAI(scope="other_campus")
+    pipeline = make_pipeline(feed, ai)
+    assert pipeline.refresh().alerts == []
+    assert pipeline.refresh().alerts == []
+    assert len(ai.summarize_calls) == 1
+
+
+def test_campus_name_in_text_overrides_the_ai():
+    feed = FakeFeed([raw("a", "Power outage on the Bothell campus.")])
+    pin = make_pipeline(feed, FakeAI(scope="other_campus")).refresh().alerts[0]
+    assert (pin.scope, pin.coordinates) == ("campus", [1.0, 2.0])
+
+
+def test_ai_failure_without_campus_name_is_listed_without_a_pin():
+    ai = FakeAI()
+    ai.fail = True
+    pin = make_pipeline(FakeFeed([raw("a", "Smoke advisory.")]), ai).refresh().alerts[0]
+    assert (pin.scope, pin.coordinates, pin.severity) == ("university", None, "medium")

@@ -12,7 +12,9 @@ export interface AlertPin {
   incident_type: string;
   severity: "low" | "medium" | "high";
   recommended_action: string;
-  coordinates: [number, number];
+  /** "campus" alerts are pinned; "university" alerts have no coordinates and appear only in the alert list. */
+  scope: "campus" | "university";
+  coordinates: [number, number] | null;
   published: string;
   headline?: string;
   safety_brief?: string;
@@ -118,8 +120,8 @@ export default function CampusMap({ alerts, busStops = [] }: { alerts: AlertPin[
         maxZoom={19}
       />
 
-      {/* Alert pins */}
-      {alerts.map((pin) => {
+      {/* Alert pins: only campus alerts have coordinates; university-wide ones are list-only */}
+      {alerts.filter((pin): pin is AlertPin & { coordinates: [number, number] } => pin.coordinates !== null).map((pin) => {
         const s = sev[pin.severity] ?? sev.medium;
         return (
           <Marker
