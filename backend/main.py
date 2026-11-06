@@ -224,7 +224,8 @@ async def get_alerts() -> AlertsResponse:
 
 @app.get("/api/health")
 async def health() -> dict:
-    return {"status": "ok"}
+    # CI polls this after a deploy until `version` matches the merged commit (api/health.md).
+    return {"status": "ok", "version": os.environ.get("RENDER_GIT_COMMIT", "unknown")}
 
 
 @app.get("/api/recommendations")

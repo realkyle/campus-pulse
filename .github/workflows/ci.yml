@@ -39,3 +39,66 @@ jobs:
         run: cd frontend && npm run build
         env:
           NEXT_PUBLIC_API_URL: https://css382-dyop.onrender.com
+
+  deploy-backend:
+    name: Deploy backend
+    needs: [backend, frontend]
+    # Only after a merge to main, never on pull requests.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # The deploy hook always deploys the branch's latest commit, so an older run
+    # would wait forever for a version that never goes live. A newer merge
+    # cancels it instead.
+    concurrency:
+      group: deploy-backend
+      cancel-in-progress: true
+    env:
+      BACKEND_URL: https://css382-dyop.onrender.com
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for backend changes
+        id: changes
+        env:
+          BEFORE: ${{ github.event.before }}
+        # If BEFORE isn't a usable commit (e.g. a force push), git diff errors and
+        # we deploy anyway: deploying unnecessarily is safer than skipping one.
+        run: |
+          if git diff --quiet "$BEFORE" "$GITHUB_SHA" -- backend/; then
+            echo "backend=false" >> "$GITHUB_OUTPUT"
+            echo "No backend changes; skipping deploy."
+          else
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger Render deploy
+        if: steps.changes.outputs.backend == 'true'
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::error::Repository secret RENDER_DEPLOY_HOOK_URL is not set"
+            exit 1
+          fi
+          curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL" > /dev/null
+
+      - name: Wait for the new version to go live
+        if: steps.changes.outputs.backend == 'true'
+        # /api/health returns the deployed commit (api/health.md). Poll every
+        # 15 s for up to 20 minutes; the build compiles scikit-surprise, which is slow.
+        run: |
+          for attempt in $(seq 1 80); do
+            version=$(curl -fsS -m 20 "$BACKEND_URL/api/health" \
+              | python3 -c 'import sys, json; print(json.load(sys.stdin).get("version", ""))' 2>/dev/null || true)
+            echo "Attempt $attempt: live version ${version:-unreachable}"
+            if [ "$version" = "$GITHUB_SHA" ]; then
+              echo "Backend is live at $GITHUB_SHA"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Backend did not report version $GITHUB_SHA within 20 minutes"
+          exit 1

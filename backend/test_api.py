@@ -35,3 +35,13 @@ def test_lifespan_starts_and_stops_background_loops(monkeypatch):
         assert running.get("/api/health").status_code == 200
         assert sorted(started) == ["alerts", "events"]
     assert sorted(cancelled) == ["alerts", "events"]
+
+
+def test_health_reports_deployed_commit(monkeypatch):
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "abc123")
+    assert client.get("/api/health").json() == {"status": "ok", "version": "abc123"}
+
+
+def test_health_version_unknown_outside_render(monkeypatch):
+    monkeypatch.delenv("RENDER_GIT_COMMIT", raising=False)
+    assert client.get("/api/health").json() == {"status": "ok", "version": "unknown"}
