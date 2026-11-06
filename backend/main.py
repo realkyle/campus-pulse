@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 from building_coords import BUILDING_COORDS, CAMPUS_CENTER, resolve_coordinates
 from rss_fetcher import fetch_alerts
+from alert_pipeline import AlertPin, AlertPipeline, AlertsResponse
 from demo_pins import DemoCapacityError, DemoPinStore
 from nlp_summarizer import AlertSummary, summarize, triage
 from database import log_interaction
@@ -56,24 +57,6 @@ app.add_middleware(
 
 # ── In-memory cache ──────────────────────────────────────────────────────────
 
-class AlertPin(BaseModel):
-    id: str
-    raw_text: str
-    building_name: str
-    incident_type: str
-    severity: str                    # low | medium | high
-    recommended_action: str
-    coordinates: list[float]         # [lat, lng]
-    published: str
-    headline: str | None = None      # smart triage — high severity only
-    safety_brief: str | None = None  # smart triage — high severity only
-
-class AlertsResponse(BaseModel):
-    alerts: list[AlertPin]
-    last_updated: str
-    ai_available: bool
-    feed_available: bool
-
 _cache: AlertsResponse = AlertsResponse(
     alerts=[],
     last_updated=datetime.now(timezone.utc).isoformat(),
@@ -106,62 +89,20 @@ DEMO_SCENARIOS = {
 POLL_INTERVAL_SECONDS = 300  # 5 minutes
 
 
+alert_pipeline = AlertPipeline(
+    fetch=fetch_alerts,
+    summarize=summarize,
+    triage=triage,
+    resolve_coordinates=resolve_coordinates,
+    fallback_coordinates=CAMPUS_CENTER,
+)
+
+
 async def refresh_alerts() -> None:
     global _cache
-
-    raw_alerts, feed_ok = fetch_alerts()
-    ai_ok = True
-    pins: list[AlertPin] = []
-
-    for raw in raw_alerts:
-        summary, ai_available = summarize(raw["raw_text"])
-        if not ai_available:
-            ai_ok = False
-
-        if summary:
-            coords = resolve_coordinates(summary.building_name)
-            headline = None
-            safety_brief = None
-            if summary.severity == "high":
-                result = triage(raw["raw_text"], summary)
-                if result:
-                    headline = result.headline
-                    safety_brief = result.safety_brief
-            pins.append(
-                AlertPin(
-                    id=raw["id"],
-                    raw_text=raw["raw_text"],
-                    building_name=summary.building_name,
-                    incident_type=summary.incident_type,
-                    severity=summary.severity,
-                    recommended_action=summary.recommended_action,
-                    coordinates=list(coords),
-                    published=raw["published"],
-                    headline=headline,
-                    safety_brief=safety_brief,
-                )
-            )
-        else:
-            # AI fallback: raw text on campus center
-            pins.append(
-                AlertPin(
-                    id=raw["id"],
-                    raw_text=raw["raw_text"],
-                    building_name="CAMPUS",
-                    incident_type="Alert",
-                    severity="medium",
-                    recommended_action="See raw alert text for details.",
-                    coordinates=list(CAMPUS_CENTER),
-                    published=raw["published"],
-                )
-            )
-
-    _cache = AlertsResponse(
-        alerts=pins,
-        last_updated=datetime.now(timezone.utc).isoformat(),
-        ai_available=ai_ok,
-        feed_available=feed_ok,
-    )
+    # The feed download and OpenAI calls block, so run them on a worker thread;
+    # called directly here they would freeze every request until they finished.
+    _cache = await asyncio.to_thread(alert_pipeline.refresh)
 
 
 async def poll_loop() -> None:
@@ -228,8 +169,11 @@ async def health() -> dict:
     return {"status": "ok", "version": os.environ.get("RENDER_GIT_COMMIT", "unknown")}
 
 
+# Plain `def` routes run on FastAPI's thread pool. They call synchronous
+# Supabase (and SVD) code, which inside `async def` would freeze the event loop
+# and every other request with it.
 @app.get("/api/recommendations")
-async def recommendations(
+def recommendations(
     hashed_netid: str,
     major: Optional[str] = None,
     limit: int = 10,
@@ -320,6 +264,6 @@ class InteractionRequest(BaseModel):
 
 
 @app.post("/api/interactions")
-async def record_interaction(body: InteractionRequest) -> dict:
+def record_interaction(body: InteractionRequest) -> dict:
     ok = log_interaction(body.hashed_netid, body.event_id)
     return {"recorded": ok}
