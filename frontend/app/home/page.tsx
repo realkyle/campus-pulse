@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import SiteNav from "@/components/SiteNav";
 import type { AlertPin } from "@/components/CampusMap";
 import { useUser } from "@auth0/nextjs-auth0";
 import { API_URL } from "@/lib/config";
 import { fetchAsUser } from "@/lib/api";
-import { colors, severity as sev } from "@/lib/tokens";
+import { severity as sev } from "@/lib/tokens";
+import { useLocalStorageValue } from "@/lib/useLocalStorageValue";
+import { useNow } from "@/lib/useNow";
 
 const CampusMap = dynamic(() => import("@/components/CampusMap"), { ssr: false });
 
@@ -33,20 +35,29 @@ const DEMO_ERRORS: Record<number, string> = {
 
 type DemoEntry = { id: string; building: string; severity: Severity; expiresAt: number };
 
+function parseDemos(stored: string | null): DemoEntry[] {
+  try {
+    return stored ? (JSON.parse(stored) as DemoEntry[]) : [];
+  } catch {
+    return []; // unreadable leftovers from an older version
+  }
+}
+
 function DemoControls() {
   const [building, setBuilding] = useState("UW1");
   const [severity, setSeverity] = useState<Severity>("high");
-  const [demos, setDemos] = useState<DemoEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Demo pins survive a reload: they live in localStorage, read without an effect.
+  const [storedDemos, setStoredDemos] = useLocalStorageValue(DEMO_KEY);
+  const now = useNow(1000); // ticks the countdowns once a second
+  const demos = parseDemos(storedDemos).filter((d) => d.expiresAt > now);
 
   function saveDemos(entries: DemoEntry[]) {
-    localStorage.setItem(DEMO_KEY, JSON.stringify(entries));
-    setDemos(entries);
+    setStoredDemos(JSON.stringify(entries));
   }
 
   function getRemaining(expiresAt: number) {
-    return Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+    return Math.max(0, Math.ceil((expiresAt - now) / 1000));
   }
 
   async function adminFetch(path: string, method: "POST" | "DELETE"): Promise<Response | null> {
@@ -62,30 +73,14 @@ function DemoControls() {
     }
   }
 
-  // Restore from storage on mount and tick every second
-  useEffect(() => {
-    const stored = localStorage.getItem(DEMO_KEY);
-    if (stored) {
-      const parsed: DemoEntry[] = JSON.parse(stored).filter((d: DemoEntry) => getRemaining(d.expiresAt) > 0);
-      setDemos(parsed);
-      if (parsed.length !== JSON.parse(stored).length) localStorage.setItem(DEMO_KEY, JSON.stringify(parsed));
-    }
-    timerRef.current = setInterval(() => {
-      setDemos((prev) => {
-        const active = prev.filter((d) => getRemaining(d.expiresAt) > 0);
-        if (active.length !== prev.length) localStorage.setItem(DEMO_KEY, JSON.stringify(active));
-        return active;
-      });
-    }, 1000);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, []);
-
   async function handleTrigger() {
     const params = new URLSearchParams({ building, severity });
     const res = await adminFetch(`/api/demo?${params}`, "POST");
     if (!res?.ok) return;
     const data = await res.json();
-    const entry: DemoEntry = { id: data.pin_id, building: data.building, severity, expiresAt: Date.now() + data.expires_in * 1000 };
+    // `now` (from useNow, at most 1 s old) instead of Date.now(): accurate enough for a
+    // 60 s countdown, and keeps the component free of impure calls.
+    const entry: DemoEntry = { id: data.pin_id, building: data.building, severity, expiresAt: now + data.expires_in * 1000 };
     saveDemos([...demos, entry]);
   }
 
@@ -204,15 +199,17 @@ export default function HomePage() {
   // Only decides whether Demo Controls are shown; the backend still checks the
   // demo:write permission on every demo request (api/demo.md).
   useEffect(() => {
-    if (!user) {
-      setIsAdmin(false);
-      return;
-    }
+    if (!user) return;
+    let cancelled = false;
     fetchAsUser("/api/me")
       .then((r) => (r.ok ? r.json() : { is_admin: false }))
-      .then((me) => setIsAdmin(Boolean(me.is_admin)))
-      .catch(() => setIsAdmin(false));
+      .then((me) => { if (!cancelled) setIsAdmin(Boolean(me.is_admin)); })
+      .catch(() => { if (!cancelled) setIsAdmin(false); });
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
+  const showDemoControls = Boolean(user) && isAdmin;
 
   useEffect(() => {
     fetch(`${API_URL}/api/alerts`)
@@ -324,7 +321,7 @@ export default function HomePage() {
           </p>
         </section>
 
-        {isAdmin && <DemoControls />}
+        {showDemoControls && <DemoControls />}
 
         {/* Tech stack */}
         <section style={{ padding: "32px 48px 48px" }}>

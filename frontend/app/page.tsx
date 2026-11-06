@@ -1,12 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useUser } from "@auth0/nextjs-auth0";
 import AlertBanner from "@/components/AlertBanner";
 import RecommendationsPanel from "@/components/RecommendationsPanel";
 import type { AlertPin, BusStop } from "@/components/CampusMap";
 import { API_URL } from "@/lib/config";
+import { useLocalStorageValue } from "@/lib/useLocalStorageValue";
+import { usePolledJson } from "@/lib/usePolledJson";
 import { useWindowWidth } from "@/lib/useWindowWidth";
 import { colors, severity as sev } from "@/lib/tokens";
 
@@ -21,40 +23,48 @@ interface AlertsResponse {
   feed_available: boolean;
 }
 
+// lib/auth0.ts redirects to "/?login_error=uw_only|failed" after a refused login.
+// Read once per page load (never on the server), and cleared when dismissed.
+let pendingLoginError: string | null =
+  typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("login_error");
+const noSubscription = () => () => {};
+
+const LOGIN_ERROR_TEXT: Record<string, string> = {
+  uw_only: "Only UW accounts (@uw.edu or @washington.edu) can sign in. Sign in again and choose your UW Google account.",
+  failed: "Sign-in failed. Please try again.",
+};
+
 export default function HomePage() {
   const isMobile = useWindowWidth() < 768;
-  const { user, error: authError, isLoading: authLoading } = useUser();
-  const [data, setData] = useState<AlertsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [busStops, setBusStops] = useState<BusStop[]>([]);
-  const [major, setMajor] = useState<string | null>(null);
+  const { user, isLoading: authLoading } = useUser();
+  const alertsPoll = usePolledJson<AlertsResponse>(`${API_URL}/api/alerts`, POLL_MS);
+  const busPoll = usePolledJson<{ stops: BusStop[] }>(`${API_URL}/api/buses`, 60_000);
+  const data = alertsPoll.data;
+  const loading = !alertsPoll.loaded;
+  const busStops = busPoll.data?.stops ?? [];
+  const [major, setStoredMajor] = useLocalStorageValue("major");
   const [showAlertList, setShowAlertList] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
 
-  // lib/auth0.ts redirects here with ?login_error=uw_only|failed after a refused login.
-  useEffect(() => {
-    const reason = new URLSearchParams(window.location.search).get("login_error");
-    if (!reason) return;
-    setLoginError(
-      reason === "uw_only"
-        ? "Only UW accounts (@uw.edu or @washington.edu) can sign in. Sign in again and choose your UW Google account."
-        : "Sign-in failed. Please try again."
-    );
-    window.history.replaceState(null, "", window.location.pathname); // so a refresh doesn't show it again
-  }, []);
+  const loginReason = useSyncExternalStore(noSubscription, () => pendingLoginError, () => null);
+  const [loginErrorDismissed, setLoginErrorDismissed] = useState(false);
+  const loginError = loginReason && !loginErrorDismissed ? (LOGIN_ERROR_TEXT[loginReason] ?? LOGIN_ERROR_TEXT.failed) : null;
 
   useEffect(() => {
-    const storedMajor = localStorage.getItem("major");
-    if (storedMajor) setMajor(storedMajor);
+    // So a refresh doesn't show the message again. (No state change here.)
+    if (pendingLoginError) window.history.replaceState(null, "", window.location.pathname);
   }, []);
+
+  function dismissLoginError() {
+    pendingLoginError = null;
+    setLoginErrorDismissed(true);
+  }
 
   // The backend identifies the user from the access token (lib/api.ts); the
   // browser no longer computes or stores a user ID.
   const displayName = user ? (user.name ?? user.email ?? "Signed in user") : null;
 
   function handleMajorChange(m: string) {
-    localStorage.setItem("major", m);
-    setMajor(m);
+    setStoredMajor(m);
   }
 
   function handleLogout() {
@@ -62,43 +72,10 @@ export default function HomePage() {
     // Left over from the old client-side user ID; remove it from existing browsers.
     localStorage.removeItem("hashed_netid");
     localStorage.removeItem("hashed_netid_source");
+    // A full page load on purpose: /auth/logout is the Auth0 route, not a Next.js page.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = "/auth/logout";
   }
-
-  async function fetchAlerts() {
-    try {
-      const res = await fetch(`${API_URL}/api/alerts`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: AlertsResponse = await res.json();
-      setData(json);
-    } catch {
-      // Keep stale data if available; just stop showing loading spinner.
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function fetchBuses() {
-    try {
-      const res = await fetch(`${API_URL}/api/buses`);
-      if (!res.ok) return;
-      const json = await res.json();
-      setBusStops(json.stops ?? []);
-    } catch {
-      // Non-critical — map still works without bus data
-    }
-  }
-
-  useEffect(() => {
-    fetchAlerts();
-    fetchBuses();
-    const alertInterval = setInterval(fetchAlerts, POLL_MS);
-    const busInterval = setInterval(fetchBuses, 60_000);
-    return () => {
-      clearInterval(alertInterval);
-      clearInterval(busInterval);
-    };
-  }, []);
 
 
   const alerts = data?.alerts ?? [];
@@ -253,7 +230,7 @@ export default function HomePage() {
       {loginError && (
         <div role="alert" style={{ background: colors.highBg, color: colors.highText, padding: "8px 16px", fontSize: 13, display: "flex", justifyContent: "space-between", gap: 12 }}>
           <span>{loginError}</span>
-          <button onClick={() => setLoginError(null)} aria-label="Dismiss" style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: 14 }}>✕</button>
+          <button onClick={dismissLoginError} aria-label="Dismiss" style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: 14 }}>✕</button>
         </div>
       )}
 
@@ -313,6 +290,7 @@ export default function HomePage() {
 
         {user && (
           <RecommendationsPanel
+            key={major ?? ""} // a new major resets the panel's state (fresh list, page 1)
             major={major}
             onMajorChange={handleMajorChange}
           />
