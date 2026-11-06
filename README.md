@@ -5,7 +5,7 @@
 
 A real-time campus map: official emergency alerts turned into map pins by an LLM, a personalized feed of campus events, and live bus arrivals.
 
-<!-- Screenshot: add a capture of the live map here, e.g. ![Campus Pulse map](docs-assets/map.png) -->
+![Campus Pulse: the live campus map with bus stops, the alert count and the severity legend](.github/assets/map.png)
 
 ## What it does
 
@@ -15,19 +15,9 @@ A real-time campus map: official emergency alerts turned into map pins by an LLM
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  U["Browser"] -->|"pages, /auth/*"| V["Next.js 16 on Vercel<br/>Auth0 session"]
-  U -->|"public API + Bearer JWT (For You)"| R["FastAPI on Render"]
-  V -.->|"login"| Z["Auth0 + Google<br/>→ UW NetID + Duo"]
-  R -.->|"signing keys (JWKS)"| Z
-  R --> O["OpenAI gpt-4o-mini"]
-  R --> A["UW Alert RSS"]
-  R --> T["Campus calendar RSS"]
-  R --> B["OneBusAway"]
-  R --> S[("Supabase Postgres")]
-  G["GitHub Actions"] -->|"lint + tests, deploy hook,<br/>verify live version"| R
-```
+![Architecture: the browser (Next.js on Vercel) calls the FastAPI backend on Render over HTTPS, with a JWT for signed-in features; background jobs call OpenAI, the UW Alert and campus calendar feeds and OneBusAway, and clicks are stored in Supabase; Auth0 handles UW sign-in; GitHub CI runs lint and tests, then deploys and verifies the live version.](.github/assets/architecture-overview.png)
+
+The detailed diagram, with one request traced step by step, is in [ENGINEERING.md](ENGINEERING.md#architecture).
 
 Background loops refresh alerts (5 min) and events (60 min) into memory, so API requests never wait on a feed or the LLM.
 
