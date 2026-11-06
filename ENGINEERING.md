@@ -2,6 +2,12 @@
 
 How Campus Pulse is built, what changed, and how each change was verified. The [README](README.md) has the short version.
 
+## Architecture
+
+![Detailed architecture: browser pages, hooks and the Auth0 SDK on Vercel; the FastAPI token check, API routes and background loops on Render; OpenAI, the UW Alert and campus calendar feeds, OneBusAway, Auth0 and the Supabase interactions table; numbered arrows trace one For You request; the GitHub Actions pipeline deploys and verifies the live version.](.github/assets/architecture.png)
+
+Both diagrams are drawn in HTML (`.github/assets/*.html`); each file starts with the command that re-renders its PNG.
+
 ## Stack
 
 | Layer | Tech |

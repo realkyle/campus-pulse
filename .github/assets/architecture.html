@@ -1,0 +1,176 @@
+<!doctype html>
+<!-- Source for architecture.png. Regenerate (from the repo root):
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars \
+    --window-size=1590,2010 --screenshot=.github/assets/architecture.png .github/assets/architecture.html
+-->
+<html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box}
+body{margin:0;background:#fff;font-family:"DejaVu Sans",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1F2937}
+#c{position:relative;width:1590px;height:2010px}
+.zone{position:absolute;border:3px dashed;border-radius:18px}
+.zlabel{position:absolute;font-weight:700;font-size:27px;letter-spacing:.5px}
+.zsub{position:absolute;font-style:italic;font-size:21px}
+.box{position:absolute;border:3px solid;border-radius:14px;text-align:center;padding:16px 10px}
+.box h3{margin:0 0 12px;font-size:27px}
+.box p{margin:0;font-size:21px;line-height:1.7;color:#374151}
+.dev{border-color:#2563EB;background:#EFF6FF}
+.cloud{border-color:#059669;background:#ECFDF5}
+.svc{border-color:#D97706;background:#FFFBEB}
+.svc h3{font-size:23px;margin-bottom:6px}
+.svc p{font-size:18px;line-height:1.5}
+.pipe{border-color:#9333EA;background:#FAF5FF}
+.tbl{position:absolute;border:2px solid #6B7280;border-radius:8px;background:#fff;padding:12px 14px;text-align:left}
+.tbl b{font-size:21px;display:block;margin-bottom:8px}
+.tbl code{display:block;font-family:"DejaVu Sans Mono",Menlo,monospace;font-size:16px;line-height:1.7;color:#374151}
+.num{position:absolute;width:44px;height:44px;border-radius:50%;background:#DC2626;color:#fff;font-weight:700;font-size:23px;display:flex;align-items:center;justify-content:center;border:3px solid #fff}
+.lbl{position:absolute;font-size:19px;color:#1F2937;background:#fff;padding:0 4px;white-space:nowrap}
+.legend{position:absolute;border:3px solid #DC2626;border-radius:14px;background:#FEF2F2;padding:22px 28px}
+.legend h4{margin:0 0 18px;font-size:23px;color:#991B1B}
+.step{display:flex;gap:16px;margin-bottom:16px;font-size:19px;line-height:1.6}
+.step .dot{flex:none;width:36px;height:36px;border-radius:50%;background:#DC2626;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center}
+.legend em{display:block;color:#991B1B;font-size:19px;margin-top:6px}
+svg{position:absolute;left:0;top:0;z-index:1}
+.num,.lbl{z-index:2}
+</style></head><body><div id="c">
+
+<!-- ── zones ─────────────────────────────────────────────── -->
+<div class="zlabel" style="left:50px;top:24px;color:#2563EB">STUDENT'S BROWSER</div>
+<div class="zsub" style="left:372px;top:32px;color:#2563EB">Next.js 16 on Vercel</div>
+<div class="zone" style="left:44px;top:63px;width:572px;height:907px;border-color:#2563EB"></div>
+
+<div class="zlabel" style="left:918px;top:24px;color:#059669">BACKEND</div>
+<div class="zsub" style="left:1072px;top:32px;color:#059669">FastAPI · Python 3.11 · Render</div>
+<div class="zone" style="left:912px;top:63px;width:634px;height:907px;border-color:#059669"></div>
+
+<div class="zlabel" style="left:840px;top:1012px;color:#D97706">DATA &amp; SERVICES</div>
+<div class="zone" style="left:834px;top:1051px;width:712px;height:560px;border-color:#D97706"></div>
+
+<!-- ── browser ────────────────────────────────────────────── -->
+<div class="box dev" style="left:77px;top:96px;width:506px;height:262px">
+  <h3>Pages (React 19)</h3>
+  <p>Live map: alert pins · bus stops<br>Alert list · "For You" panel<br>(each card says why it was picked)<br>/home: admin-only demo controls</p>
+</div>
+<div class="box dev" style="left:77px;top:398px;width:506px;height:262px">
+  <h3>Hooks &amp; data layer</h3>
+  <p>usePolledJson: alerts 30 s, buses 60 s<br>(paused while the tab is hidden)<br>fetchAsUser: adds the Bearer token<br>No user ID is ever sent</p>
+</div>
+<div class="box dev" style="left:77px;top:700px;width:506px;height:236px">
+  <h3>Auth0 SDK (server side)</h3>
+  <p>/auth/login · /callback · /access-token<br>Encrypted httpOnly session cookie<br>Non-UW accounts refused</p>
+</div>
+
+<!-- ── backend ────────────────────────────────────────────── -->
+<div class="box cloud" style="left:945px;top:96px;width:568px;height:222px">
+  <h3>Token check: get_current_user</h3>
+  <p>RS256 signature vs Auth0 keys (JWKS)<br>exp · issuer · audience · UW email<br>admin routes also need demo:write</p>
+</div>
+<div class="box cloud" style="left:945px;top:356px;width:568px;height:258px">
+  <h3>API routes</h3>
+  <p>Public: /api/alerts · /api/events<br>/api/buses (30 s shared cache, single flight)<br>Signed in: /api/recommendations<br>/api/interactions · Admin: /api/demo</p>
+</div>
+<div class="box cloud" style="left:945px;top:652px;width:568px;height:284px">
+  <h3>Background loops (in memory)</h3>
+  <p>Alerts every 5 min: feed → gpt-4o-mini<br>(once per alert) → evidence guard → pins<br>Events every 60 min: 406 parsed<br>Recommender stats rebuilt hourly<br>Requests never wait on a feed or the LLM</p>
+</div>
+
+<!-- ── services ───────────────────────────────────────────── -->
+<div class="box svc" style="left:866px;top:1086px;width:318px;height:118px">
+  <h3>OpenAI</h3>
+  <p>gpt-4o-mini, JSON mode</p>
+</div>
+<div class="box svc" style="left:1200px;top:1086px;width:314px;height:118px">
+  <h3>UW Alert RSS</h3>
+  <p>last 48 hours only</p>
+</div>
+<div class="box svc" style="left:866px;top:1220px;width:318px;height:118px">
+  <h3>Campus calendar RSS</h3>
+  <p>Trumba · structured dates</p>
+</div>
+<div class="box svc" style="left:1200px;top:1220px;width:314px;height:118px">
+  <h3>OneBusAway</h3>
+  <p>3 stops · rate-limited key</p>
+</div>
+<div class="box svc" style="left:866px;top:1354px;width:318px;height:118px">
+  <h3>Auth0 + Google</h3>
+  <p>UW NetID + Duo · RBAC roles</p>
+</div>
+<div class="tbl" style="left:1200px;top:1354px;width:314px;height:226px">
+  <b>Supabase Postgres</b>
+  <code>interactions</code>
+  <code>&nbsp;hashed_netid = sha256(sub)</code>
+  <code>&nbsp;event_id · timestamp</code>
+  <code>&nbsp;category · series_key</code>
+  <code style="font-style:italic">RLS on · service key only</code>
+</div>
+<div class="lbl" style="left:866px;top:1490px;font-style:italic;color:#92400E;white-space:normal;width:318px;font-size:17px;line-height:1.5">Any feed or the LLM can fail: the app keeps the last good data and shows a banner.</div>
+<div class="lbl" style="left:996px;top:944px;color:#065F46;background:transparent">every 5 / 60 min</div>
+
+<!-- ── numbered flow: one "For You" request ───────────────── -->
+<div class="num" style="left:676px;top:858px">1</div>
+<div class="lbl" style="left:728px;top:842px">sign in</div>
+<div class="num" style="left:262px;top:658px">2</div>
+<div class="lbl" style="left:348px;top:668px">access token</div>
+<div class="num" style="left:678px;top:290px">3</div>
+<div class="lbl" style="left:716px;top:168px">GET + Bearer JWT</div>
+<div class="num" style="left:1510px;top:990px">4</div>
+<div class="lbl" style="left:1392px;top:1000px">user's clicks</div>
+<div class="num" style="left:744px;top:540px">5</div>
+<div class="lbl" style="left:628px;top:592px">events + reasons</div>
+
+<div class="legend" style="left:44px;top:1051px;width:722px;height:560px">
+  <h4>One "For You" request (numbered arrows), all over HTTPS</h4>
+  <div class="step"><span class="dot">1</span><span>Student signs in: Auth0 → Google → UW NetID + Duo. An Auth0 Action refuses non-UW accounts.</span></div>
+  <div class="step"><span class="dot">2</span><span>The panel gets a short-lived access token (a signed JWT) from the app's own /auth/access-token route.</span></div>
+  <div class="step"><span class="dot">3</span><span>Browser calls the API with the token. The backend checks the signature, expiry, audience and UW email itself.</span></div>
+  <div class="step"><span class="dot">4</span><span>It reads only this user's clicks (one indexed query) and scores ~70 student events with hourly stats.</span></div>
+  <div class="step"><span class="dot">5</span><span>Returns ranked events, each with a reason ("Because you liked Technology events").</span></div>
+  <em>The user is taken from the verified token, never from the request, so nobody can act as someone else.</em>
+</div>
+
+<!-- ── pipeline ───────────────────────────────────────────── -->
+<div class="zlabel" style="left:50px;top:1660px;color:#9333EA">DEVELOPMENT &amp; DEPLOYMENT PIPELINE</div>
+<div class="zone" style="left:44px;top:1699px;width:1502px;height:282px;border-color:#9333EA"></div>
+<div class="box pipe" style="left:77px;top:1734px;width:322px;height:214px">
+  <h3>GitHub repo</h3>
+  <p>One PR per change<br>API contracts in api/<br>LLM eval set + results</p>
+</div>
+<div class="box pipe" style="left:449px;top:1734px;width:420px;height:214px">
+  <h3>GitHub Actions</h3>
+  <p>ruff + pytest (202 tests)<br>ESLint + Next.js build<br>must pass before merging</p>
+</div>
+<div class="box pipe" style="left:919px;top:1734px;width:594px;height:214px">
+  <h3>Deploy on merge</h3>
+  <p>Vercel builds the frontend<br>Render deploy hook, then CI polls /api/health<br>until the live version = the merged commit</p>
+</div>
+
+<svg width="1590" height="2010">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4B5563"/></marker>
+    <marker id="p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9333EA"/></marker>
+  </defs>
+  <g stroke="#4B5563" stroke-width="4" fill="none">
+    <!-- browser stack -->
+    <line x1="330" y1="358" x2="330" y2="398"/>
+    <!-- 2: access token, Auth0 SDK → hooks -->
+    <line x1="330" y1="700" x2="330" y2="664" marker-end="url(#a)"/>
+    <!-- 1: sign in, Auth0 SDK ↔ Auth0 (down the gap between legend and services) -->
+    <polyline points="587,880 809,880 809,1413 862,1413" marker-start="url(#a)" marker-end="url(#a)"/>
+    <!-- 3: request with JWT, hooks → token check -->
+    <polyline points="583,450 700,450 700,207 941,207" marker-end="url(#a)"/>
+    <!-- token check → routes -->
+    <line x1="1229" y1="318" x2="1229" y2="352" marker-end="url(#a)"/>
+    <!-- 4: routes → Supabase (right edge) -->
+    <polyline points="1513,485 1532,485 1532,1460 1518,1460" marker-end="url(#a)"/>
+    <!-- background loops → OpenAI and the feeds -->
+    <line x1="1140" y1="936" x2="1140" y2="1082" marker-end="url(#a)"/>
+    <line x1="1290" y1="936" x2="1290" y2="1082" marker-end="url(#a)"/>
+  </g>
+  <!-- 5: response, routes → hooks (dashed) -->
+  <line x1="941" y1="570" x2="587" y2="570" stroke="#4B5563" stroke-width="4" stroke-dasharray="12 9" marker-end="url(#a)"/>
+  <!-- pipeline -->
+  <g stroke="#9333EA" stroke-width="4" fill="none">
+    <line x1="399" y1="1841" x2="445" y2="1841" marker-end="url(#p)"/>
+    <line x1="869" y1="1841" x2="915" y2="1841" marker-end="url(#p)"/>
+  </g>
+</svg>
+</div></body></html>

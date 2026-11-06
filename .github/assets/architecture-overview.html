@@ -1,0 +1,100 @@
+<!doctype html>
+<!-- Source for architecture-overview.png. Regenerate (from the repo root):
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars \
+    --window-size=1590,860 --screenshot=.github/assets/architecture-overview.png .github/assets/architecture-overview.html
+-->
+<html><head><meta charset="utf-8"><style>
+*{box-sizing:border-box}
+body{margin:0;background:#fff;font-family:"DejaVu Sans",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1F2937}
+#c{position:relative;width:1590px;height:860px}
+.zone{position:absolute;border:3px dashed;border-radius:18px}
+.zlabel{position:absolute;font-weight:700;font-size:27px;letter-spacing:.5px}
+.zsub{position:absolute;font-style:italic;font-size:21px}
+.box{position:absolute;border:3px solid;border-radius:14px;text-align:center;padding:16px 10px}
+.box h3{margin:0 0 10px;font-size:27px}
+.box p{margin:0;font-size:21px;line-height:1.6;color:#374151}
+.dev{border-color:#2563EB;background:#EFF6FF}
+.cloud{border-color:#059669;background:#ECFDF5}
+.svc{border-color:#D97706;background:#FFFBEB;padding:12px 10px}
+.svc h3{font-size:22px;margin:0}
+.pipe{border-color:#9333EA;background:#FAF5FF;padding:12px 10px}
+.pipe h3{margin:0 0 4px;font-size:24px}
+.pipe p{font-size:19px}
+.lbl{position:absolute;font-size:20px;color:#1F2937;background:#fff;padding:0 4px;white-space:nowrap;z-index:2}
+svg{position:absolute;left:0;top:0;z-index:1}
+</style></head><body><div id="c">
+
+<div class="zlabel" style="left:50px;top:24px;color:#2563EB">BROWSER</div>
+<div class="zsub" style="left:200px;top:32px;color:#2563EB">Next.js 16 · Vercel</div>
+<div class="zone" style="left:44px;top:63px;width:450px;height:560px;border-color:#2563EB"></div>
+<div class="box dev" style="left:77px;top:98px;width:384px;height:250px">
+  <h3>Campus map</h3>
+  <p>Alert pins by severity<br>Live bus arrivals<br>"For You" events<br>with a reason per pick</p>
+</div>
+<div class="box dev" style="left:77px;top:420px;width:384px;height:130px">
+  <h3>Sign in</h3>
+  <p>Auth0 · UW accounts only</p>
+</div>
+
+<div class="zlabel" style="left:574px;top:24px;color:#059669">BACKEND</div>
+<div class="zsub" style="left:722px;top:32px;color:#059669">FastAPI · Render</div>
+<div class="zone" style="left:568px;top:63px;width:470px;height:560px;border-color:#059669"></div>
+<div class="box cloud" style="left:601px;top:98px;width:404px;height:170px">
+  <h3>REST API</h3>
+  <p>Verifies the sign-in token<br>Answers from memory</p>
+</div>
+<div class="box cloud" style="left:601px;top:300px;width:404px;height:250px">
+  <h3>Background jobs</h3>
+  <p>Alerts every 5 min<br>(LLM, measured with evals)<br>Events every 60 min<br>Recommender stats hourly</p>
+</div>
+
+<div class="zlabel" style="left:1118px;top:24px;color:#D97706">DATA &amp; SERVICES</div>
+<div class="zone" style="left:1112px;top:63px;width:434px;height:560px;border-color:#D97706"></div>
+<div class="box svc" style="left:1145px;top:98px;width:368px;height:70px"><h3>OpenAI gpt-4o-mini</h3></div>
+<div class="box svc" style="left:1145px;top:184px;width:368px;height:70px"><h3>UW Alert RSS</h3></div>
+<div class="box svc" style="left:1145px;top:270px;width:368px;height:70px"><h3>Campus calendar RSS</h3></div>
+<div class="box svc" style="left:1145px;top:356px;width:368px;height:70px"><h3>OneBusAway</h3></div>
+<div class="box svc" style="left:1145px;top:442px;width:368px;height:70px"><h3>Supabase Postgres</h3></div>
+<div class="box svc" style="left:1145px;top:528px;width:368px;height:70px"><h3>Auth0 + Google</h3></div>
+
+<div class="lbl" style="left:500px;top:164px;font-size:17px">HTTPS</div>
+<div class="lbl" style="left:503px;top:212px;font-size:17px">+ JWT</div>
+<div class="lbl" style="left:1044px;top:276px;font-size:18px">calls</div>
+<div class="lbl" style="left:600px;top:646px;font-size:17px;background:transparent">sign in (UW NetID + Duo)</div>
+
+<div class="zlabel" style="left:50px;top:660px;color:#9333EA">DEVELOPMENT &amp; DEPLOYMENT</div>
+<div class="zone" style="left:44px;top:699px;width:1502px;height:136px;border-color:#9333EA"></div>
+<div class="box pipe" style="left:77px;top:722px;width:400px;height:92px">
+  <h3>GitHub</h3>
+  <p>One PR per change</p>
+</div>
+<div class="box pipe" style="left:551px;top:722px;width:440px;height:92px">
+  <h3>CI</h3>
+  <p>Lint + tests must pass</p>
+</div>
+<div class="box pipe" style="left:1065px;top:722px;width:448px;height:92px">
+  <h3>Deploy + verify</h3>
+  <p>Live version = merged commit</p>
+</div>
+
+<svg width="1590" height="860">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4B5563"/></marker>
+    <marker id="p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9333EA"/></marker>
+  </defs>
+  <g stroke="#4B5563" stroke-width="4" fill="none">
+    <!-- browser ↔ API -->
+    <line x1="461" y1="200" x2="597" y2="200" marker-start="url(#a)" marker-end="url(#a)"/>
+    <!-- backend zone → services zone -->
+    <line x1="1038" y1="320" x2="1108" y2="320" marker-end="url(#a)"/>
+    <!-- sign in → Auth0 -->
+    <polyline points="461,485 530,485 530,640 1080,640 1080,563 1141,563" marker-end="url(#a)"/>
+    <!-- API ↔ jobs -->
+    <line x1="803" y1="268" x2="803" y2="300"/>
+  </g>
+  <g stroke="#9333EA" stroke-width="4" fill="none">
+    <line x1="477" y1="768" x2="547" y2="768" marker-end="url(#p)"/>
+    <line x1="991" y1="768" x2="1061" y2="768" marker-end="url(#p)"/>
+  </g>
+</svg>
+</div></body></html>
