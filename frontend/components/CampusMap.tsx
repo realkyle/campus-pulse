@@ -23,7 +23,6 @@ export interface AlertPin {
 export interface BusArrival {
   route: string;
   headsign: string;
-  time: string;
   minutes: number;
   predicted: boolean;
 }

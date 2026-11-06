@@ -28,7 +28,7 @@ from candidates import series_key
 from recommender import get_recommendations, refresh_stats
 from events_fetcher import fetch_live_events
 from events import get_all_events, get_event_by_id, update_live_cache
-from bus_fetcher import fetch_all_stops
+from bus_fetcher import BusBoard
 
 load_dotenv()
 
@@ -135,16 +135,15 @@ async def events_loop() -> None:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
-_bus_cache: list[dict] = []
+# One board for all users: OBA is called at most every 30 s (api/buses.md).
+bus_board = BusBoard()
+
 
 @app.get("/api/buses")
 async def get_buses() -> dict:
-    global _bus_cache
-    stops = await asyncio.to_thread(fetch_all_stops)
-    # Only update cache if we got real data — serve stale on API failure
-    if any(s["arrivals"] for s in stops):
-        _bus_cache = stops
-    return {"stops": _bus_cache if _bus_cache else stops}
+    # async route + httpx.AsyncClient: the 3 stops are awaited concurrently,
+    # without blocking the event loop.
+    return await bus_board.get()
 
 
 @app.get("/api/events")
