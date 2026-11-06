@@ -17,6 +17,9 @@ export const auth0 = new Auth0Client({
     // last session: after a refused (non-UW) login, every "Sign in" click was
     // refused again instantly and bounced back home, with no way to switch accounts.
     prompt: "login",
+    // Request access tokens for the Campus Pulse API, so the backend can verify
+    // them (without an audience, Auth0 issues a token only it can read).
+    audience: process.env.AUTH0_AUDIENCE,
   },
   async onCallback(error, context, session) {
     const base = context.appBaseUrl ?? process.env.APP_BASE_URL ?? "http://localhost:3000";

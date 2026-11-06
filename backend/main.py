@@ -14,19 +14,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from building_coords import BUILDING_COORDS, CAMPUS_CENTER, CAMPUS_KEYWORDS, resolve_coordinates
 from rss_fetcher import fetch_alerts
 from alert_pipeline import AlertPin, AlertPipeline, AlertsResponse
+from auth import AuthenticatedUser, get_current_user
 from demo_pins import DemoCapacityError, DemoPinStore
 from nlp_summarizer import AlertSummary, summarize, triage
 from database import log_interaction
 from recommender import get_recommendations
 from events_fetcher import fetch_live_events
-from events import get_all_events, update_live_cache
+from events import get_all_events, get_event_by_id, update_live_cache
 from bus_fetcher import fetch_all_stops
 
 load_dotenv()
@@ -52,7 +53,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://css382-dyop.vercel.app", "http://localhost:3000"],
     allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["Content-Type", "X-Admin-Token"],
+    allow_headers=["Authorization", "Content-Type", "X-Admin-Token"],
 )
 
 # ── In-memory cache ──────────────────────────────────────────────────────────
@@ -172,13 +173,15 @@ async def health() -> dict:
 # Plain `def` routes run on FastAPI's thread pool. They call synchronous
 # Supabase (and SVD) code, which inside `async def` would freeze the event loop
 # and every other request with it.
+# The user always comes from the verified token (get_current_user), never from
+# the URL or body, so a caller can't act as someone else (api/recommendations.md).
 @app.get("/api/recommendations")
 def recommendations(
-    hashed_netid: str,
+    user: AuthenticatedUser = Depends(get_current_user),
     major: Optional[str] = None,
-    limit: int = 10,
+    limit: int = Query(default=10, ge=1, le=200),
 ) -> dict:
-    events, mode = get_recommendations(hashed_netid, major=major, limit=limit)
+    events, mode = get_recommendations(user.user_hash, major=major, limit=limit)
     return {"events": events, "mode": mode}
 
 
@@ -260,11 +263,13 @@ def clear_demo() -> dict:
 
 
 class InteractionRequest(BaseModel):
-    hashed_netid: str
     event_id: str
 
 
 @app.post("/api/interactions")
-def record_interaction(body: InteractionRequest) -> dict:
-    ok = log_interaction(body.hashed_netid, body.event_id)
+def record_interaction(body: InteractionRequest, user: AuthenticatedUser = Depends(get_current_user)) -> dict:
+    # Only real, current events can be recorded, so junk IDs can't skew the recommender.
+    if get_event_by_id(body.event_id) is None:
+        raise HTTPException(status_code=404, detail="Unknown event")
+    ok = log_interaction(user.user_hash, body.event_id)
     return {"recorded": ok}

@@ -21,22 +21,12 @@ interface AlertsResponse {
   feed_available: boolean;
 }
 
-async function sha256(value: string) {
-  const encoded = new TextEncoder().encode(value);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
 export default function HomePage() {
   const isMobile = useWindowWidth() < 768;
   const { user, error: authError, isLoading: authLoading } = useUser();
   const [data, setData] = useState<AlertsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [busStops, setBusStops] = useState<BusStop[]>([]);
-  const [netid, setNetid] = useState<string | null>(null);
-  const [hashedNetid, setHashedNetid] = useState<string | null>(null);
   const [major, setMajor] = useState<string | null>(null);
   const [showAlertList, setShowAlertList] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -58,34 +48,9 @@ export default function HomePage() {
     if (storedMajor) setMajor(storedMajor);
   }, []);
 
-  useEffect(() => {
-    if (!user) {
-      setNetid(null);
-      setHashedNetid(null);
-      return;
-    }
-
-    const displayName = user.name ?? user.email ?? user.nickname ?? user.sub ?? "Signed in user";
-    setNetid(displayName);
-
-    const sourceId = user.sub ?? displayName;
-    const storedSource = localStorage.getItem("hashed_netid_source");
-    const storedHash = localStorage.getItem("hashed_netid");
-
-    if (storedSource === sourceId && storedHash) {
-      setHashedNetid(storedHash);
-      return;
-    }
-
-    async function createHash() {
-      const hashed = await sha256(sourceId);
-      localStorage.setItem("hashed_netid", hashed);
-      localStorage.setItem("hashed_netid_source", sourceId);
-      setHashedNetid(hashed);
-    }
-
-    createHash();
-  }, [user]);
+  // The backend identifies the user from the access token (lib/api.ts); the
+  // browser no longer computes or stores a user ID.
+  const displayName = user ? (user.name ?? user.email ?? "Signed in user") : null;
 
   function handleMajorChange(m: string) {
     localStorage.setItem("major", m);
@@ -94,6 +59,7 @@ export default function HomePage() {
 
   function handleLogout() {
     localStorage.removeItem("major");
+    // Left over from the old client-side user ID; remove it from existing browsers.
     localStorage.removeItem("hashed_netid");
     localStorage.removeItem("hashed_netid_source");
     window.location.href = "/auth/logout";
@@ -242,11 +208,11 @@ export default function HomePage() {
           </div>
 
           {/* Auth controls */}
-          {netid ? (
+          {displayName ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {!isMobile && (
                 <span style={{ fontSize: 12, color: colors.textMuted }}>
-                  Signed in as <strong style={{ color: colors.textPrimary }}>{netid}</strong>
+                  Signed in as <strong style={{ color: colors.textPrimary }}>{displayName}</strong>
                 </span>
               )}
               <button
@@ -345,9 +311,8 @@ export default function HomePage() {
           )}
         </div>
 
-        {hashedNetid && (
+        {user && (
           <RecommendationsPanel
-            hashedNetid={hashedNetid}
             major={major}
             onMajorChange={handleMajorChange}
           />
