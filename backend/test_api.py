@@ -1,3 +1,7 @@
+import asyncio
+import threading
+import time
+
 from fastapi.testclient import TestClient
 
 import main
@@ -13,8 +17,6 @@ def test_removed_netid_login_endpoint_returns_404():
 
 
 def test_lifespan_starts_and_stops_background_loops(monkeypatch):
-    import asyncio
-
     started: list[str] = []
     cancelled: list[str] = []
 
@@ -45,3 +47,72 @@ def test_health_reports_deployed_commit(monkeypatch):
 def test_health_version_unknown_outside_render(monkeypatch):
     monkeypatch.delenv("RENDER_GIT_COMMIT", raising=False)
     assert client.get("/api/health").json() == {"status": "ok", "version": "unknown"}
+
+
+# ── Event-loop responsiveness ─────────────────────────────────────────────────
+
+def _health_latency_while(monkeypatch, start_slow_request) -> float:
+    """Start a slow request in a thread, then time /api/health while it runs.
+
+    The context manager matters: all requests then share ONE event loop, as in
+    production. Without it each request gets its own loop and blocking would
+    go unnoticed.
+    """
+    async def idle_loop():
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(main, "poll_loop", idle_loop)
+    monkeypatch.setattr(main, "events_loop", idle_loop)
+
+    with TestClient(main.app) as shared:
+        slow = threading.Thread(target=start_slow_request, args=(shared,))
+        slow.start()
+        time.sleep(0.2)  # let the slow request get going
+        began = time.perf_counter()
+        assert shared.get("/api/health").status_code == 200
+        latency = time.perf_counter() - began
+        slow.join()
+    return latency
+
+
+def test_slow_recommendations_do_not_block_other_requests(monkeypatch):
+    def slow_recommendations(*args, **kwargs):
+        time.sleep(1.0)  # stands in for Supabase queries + SVD training
+        return [], "popularity"
+
+    monkeypatch.setattr(main, "get_recommendations", slow_recommendations)
+    latency = _health_latency_while(
+        monkeypatch, lambda c: c.get("/api/recommendations", params={"hashed_netid": "x"})
+    )
+    assert latency < 0.3
+
+
+def test_slow_interaction_logging_does_not_block_other_requests(monkeypatch):
+    def slow_log(*args, **kwargs):
+        time.sleep(1.0)  # stands in for the Supabase insert
+        return True
+
+    monkeypatch.setattr(main, "log_interaction", slow_log)
+    latency = _health_latency_while(
+        monkeypatch, lambda c: c.post("/api/interactions", json={"hashed_netid": "x", "event_id": "e"})
+    )
+    assert latency < 0.3
+
+
+def test_alert_refresh_does_not_block_event_loop(monkeypatch):
+    class SlowPipeline:
+        def refresh(self):
+            time.sleep(0.5)  # stands in for the feed download + OpenAI calls
+            return main.AlertsResponse(alerts=[], last_updated="now", ai_available=True, feed_available=True)
+
+    monkeypatch.setattr(main, "alert_pipeline", SlowPipeline())
+
+    async def scenario() -> float:
+        refresh = asyncio.create_task(main.refresh_alerts())
+        began = time.perf_counter()
+        await asyncio.sleep(0.01)  # another coroutine wanting a turn
+        waited = time.perf_counter() - began
+        await refresh
+        return waited
+
+    assert asyncio.run(scenario()) < 0.2
