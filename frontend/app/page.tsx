@@ -122,7 +122,7 @@ export default function HomePage() {
           <span style={{ fontSize: 20 }}>📍</span>
           <div>
             <h1 style={{ fontSize: 16, fontWeight: 700, color: colors.textPrimary }}>
-              UW Bothell Campus Pulse
+              Campus Pulse
             </h1>
             <p style={{ fontSize: 11, color: colors.textMuted }}>
               Real-time alerts & campus activity

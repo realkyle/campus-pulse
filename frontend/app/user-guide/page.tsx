@@ -5,7 +5,7 @@ const STEPS = [
   {
     n: 1,
     title: "Open the map",
-    body: 'Navigate to the Campus Pulse URL. The map loads immediately — no account required. You\'ll see UW Bothell centered with any active alert pins visible.',
+    body: 'Navigate to the Campus Pulse URL. The map loads immediately — no account required. You\'ll see the campus centered with any active alert pins visible.',
   },
   {
     n: 2,
@@ -25,7 +25,7 @@ const STEPS = [
   {
     n: 5,
     title: "View your For You feed",
-    body: 'After signing in, a "For You" panel appears on the right side of the map showing live upcoming UWB campus events pulled from the official UW Bothell events calendar. New users see popularity-ranked events; returning users with enough interaction history receive personalized collaborative-filtering recommendations. Scroll down in the panel to load more events.',
+    body: 'After signing in, a "For You" panel appears on the right side of the map showing live upcoming campus events pulled from the official UW Bothell events calendar. New users see popularity-ranked events; returning users with enough interaction history receive personalized collaborative-filtering recommendations. Scroll down in the panel to load more events.',
   },
   {
     n: 6,

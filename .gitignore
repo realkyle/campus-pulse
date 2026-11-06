@@ -21,3 +21,6 @@ memory/
 
 # Private working docs (WorkLog, CodeGuide)
 docs/
+
+# Local working agreement for Claude Code (kept private)
+CLAUDE.md

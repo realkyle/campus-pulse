@@ -1,8 +1,8 @@
-# UW Bothell Campus Pulse
+# Campus Pulse
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-css382--dyop.vercel.app-blue)](https://css382-dyop.vercel.app)
 
-Real-time interactive map of UW Bothell displaying live campus events and emergency alerts with personalized recommendations.
+Real-time interactive campus map displaying live campus events and emergency alerts with personalized recommendations.
 Built with Next.js, FastAPI, OpenStreetMap (Leaflet), and GPT-4o-mini.
 
 ## Deployment
@@ -21,19 +21,10 @@ Built with Next.js, FastAPI, OpenStreetMap (Leaflet), and GPT-4o-mini.
 | Backend | FastAPI + Python 3.11 |
 | AI | GPT-4o-mini (NLP alert summarizer) |
 | Recommender | Hybrid ranking: content affinity + item-item co-clicks + popularity (`backend/scoring.py`) |
-| Events Feed | Trumba RSS (UW Bothell official calendar, refreshed hourly) |
+| Events Feed | Trumba RSS (official campus calendar, refreshed hourly) |
 | Database | PostgreSQL / Supabase |
 | Auth | Auth0 (Google login + UW Duo MFA) |
 | Deployment | Vercel (frontend) + Render (backend) |
-
-## Milestone Status
-
-| Milestone | Status | Criteria |
-|---|---|---|
-| Week 7 | ✅ | Map renders UW Bothell; test pin at UW1 |
-| Week 8 (MVP) | ✅ | RSS feed + NLP summarizer + fallback banner |
-| Week 9 (Testing) | ✅ | Event recommender + Supabase + Auth0 + project website |
-| Week 10 (Final) | ✅ | Public deploy on Vercel + Render |
 
 ## Quick Start
 
