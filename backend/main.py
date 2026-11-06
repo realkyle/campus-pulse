@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-import secrets
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -14,7 +13,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -53,7 +52,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://css382-dyop.vercel.app", "http://localhost:3000"],
     allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["Authorization", "Content-Type", "X-Admin-Token"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # ── In-memory cache ──────────────────────────────────────────────────────────
@@ -185,20 +184,24 @@ def recommendations(
     return {"events": events, "mode": mode}
 
 
-def require_demo_admin(x_admin_token: Optional[str] = Header(default=None)) -> None:
-    """Allow the request only if it carries the server's DEMO_ADMIN_TOKEN.
+DEMO_PERMISSION = "demo:write"
 
-    The feature is off (404) when no token is configured, so a deployment
-    without the env var can't be abused. Interim until login tokens are
-    verified on the backend; see api/demo.md.
+
+def require_demo_admin(user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+    """Allow demo controls only for users whose token carries demo:write.
+
+    The permission comes from the Admin role in Auth0 (RBAC), inside the signed
+    token, so it can't be forged. See api/demo.md.
     """
-    expected = os.environ.get("DEMO_ADMIN_TOKEN")
-    if not expected:
-        raise HTTPException(status_code=404, detail="Not Found")
-    # compare_digest takes the same time wherever the strings differ, so response
-    # timing can't be used to guess the token one character at a time.
-    if x_admin_token is None or not secrets.compare_digest(x_admin_token.encode(), expected.encode()):
-        raise HTTPException(status_code=401, detail="Invalid or missing admin token")
+    if DEMO_PERMISSION not in user.permissions:
+        raise HTTPException(status_code=403, detail="Admins only")
+    return user
+
+
+@app.get("/api/me")
+def me(user: AuthenticatedUser = Depends(get_current_user)) -> dict:
+    """Who is signed in; the frontend uses is_admin only to show or hide Demo Controls."""
+    return {"email": user.email, "is_admin": DEMO_PERMISSION in user.permissions}
 
 
 # Plain `def` (not async): FastAPI runs it on a thread pool, so the blocking

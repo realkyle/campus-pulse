@@ -4,7 +4,9 @@ import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import SiteNav from "@/components/SiteNav";
 import type { AlertPin } from "@/components/CampusMap";
+import { useUser } from "@auth0/nextjs-auth0";
 import { API_URL } from "@/lib/config";
+import { fetchAsUser } from "@/lib/api";
 import { colors, severity as sev } from "@/lib/tokens";
 
 const CampusMap = dynamic(() => import("@/components/CampusMap"), { ssr: false });
@@ -20,12 +22,11 @@ const SEVERITY_COLORS: Record<Severity, { bg: string; border: string; text: stri
 };
 
 const DEMO_KEY = "campus_pulse_demos";
-// sessionStorage, not localStorage: the admin token is forgotten when the tab closes.
-const ADMIN_TOKEN_KEY = "campus_pulse_admin_token";
 
 const DEMO_ERRORS: Record<number, string> = {
-  401: "Wrong admin token.",
-  404: "Demo alerts are turned off on this server.",
+  401: "Your session expired. Please sign in again.",
+  403: "Admins only.",
+  404: "That demo alert already expired.",
   422: "Invalid building or severity.",
   429: "5 demo alerts are already active. Clear one or wait for it to expire.",
 };
@@ -36,7 +37,6 @@ function DemoControls() {
   const [building, setBuilding] = useState("UW1");
   const [severity, setSeverity] = useState<Severity>("high");
   const [demos, setDemos] = useState<DemoEntry[]>([]);
-  const [adminToken, setAdminToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -49,26 +49,21 @@ function DemoControls() {
     return Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
   }
 
-  function handleTokenChange(value: string) {
-    setAdminToken(value);
-    sessionStorage.setItem(ADMIN_TOKEN_KEY, value);
-  }
-
   async function adminFetch(path: string, method: "POST" | "DELETE"): Promise<Response | null> {
     setError(null);
     try {
-      const res = await fetch(`${API_URL}${path}`, { method, headers: { "X-Admin-Token": adminToken } });
+      // The backend checks the demo:write permission inside the signed access token.
+      const res = await fetchAsUser(path, { method });
       if (!res.ok) setError(DEMO_ERRORS[res.status] ?? `Request failed (HTTP ${res.status}).`);
       return res;
     } catch {
-      setError("Could not reach the backend.");
+      setError("Your session expired. Please sign in again.");
       return null;
     }
   }
 
   // Restore from storage on mount and tick every second
   useEffect(() => {
-    setAdminToken(sessionStorage.getItem(ADMIN_TOKEN_KEY) ?? "");
     const stored = localStorage.getItem(DEMO_KEY);
     if (stored) {
       const parsed: DemoEntry[] = JSON.parse(stored).filter((d: DemoEntry) => getRemaining(d.expiresAt) > 0);
@@ -116,19 +111,6 @@ function DemoControls() {
 
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-end" }}>
 
-        {/* Admin token: the backend rejects demo requests without it */}
-        <div>
-          <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Admin token</div>
-          <input
-            type="password"
-            value={adminToken}
-            onChange={(e) => handleTokenChange(e.target.value)}
-            placeholder="Required"
-            autoComplete="off"
-            style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 6, color: "#f1f5f9", fontSize: 13, padding: "8px 12px", width: 160 }}
-          />
-        </div>
-
         {/* Building selector */}
         <div>
           <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Building</div>
@@ -164,8 +146,7 @@ function DemoControls() {
         {/* Trigger button */}
         <button
           onClick={handleTrigger}
-          disabled={!adminToken}
-          style={{ opacity: adminToken ? 1 : 0.5, background: SEVERITY_COLORS[severity].bg, border: `1px solid ${SEVERITY_COLORS[severity].border}`, borderRadius: 6, color: SEVERITY_COLORS[severity].text, fontSize: 13, fontWeight: 700, padding: "8px 20px", cursor: adminToken ? "pointer" : "not-allowed" }}
+          style={{ background: SEVERITY_COLORS[severity].bg, border: `1px solid ${SEVERITY_COLORS[severity].border}`, borderRadius: 6, color: SEVERITY_COLORS[severity].text, fontSize: 13, fontWeight: 700, padding: "8px 20px", cursor: "pointer" }}
         >
           Add Alert
         </button>
@@ -217,6 +198,21 @@ function DemoControls() {
 
 export default function HomePage() {
   const [alerts, setAlerts] = useState<AlertPin[]>([]);
+  const { user } = useUser();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Only decides whether Demo Controls are shown; the backend still checks the
+  // demo:write permission on every demo request (api/demo.md).
+  useEffect(() => {
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+    fetchAsUser("/api/me")
+      .then((r) => (r.ok ? r.json() : { is_admin: false }))
+      .then((me) => setIsAdmin(Boolean(me.is_admin)))
+      .catch(() => setIsAdmin(false));
+  }, [user]);
 
   useEffect(() => {
     fetch(`${API_URL}/api/alerts`)
@@ -328,7 +324,7 @@ export default function HomePage() {
           </p>
         </section>
 
-        <DemoControls />
+        {isAdmin && <DemoControls />}
 
         {/* Tech stack */}
         <section style={{ padding: "32px 48px 48px" }}>

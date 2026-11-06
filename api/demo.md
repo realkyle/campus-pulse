@@ -4,12 +4,21 @@ Temporary, fake alert pins used to demonstrate the map during presentations. The
 
 ## Authentication
 
-Every endpoint below requires the header `X-Admin-Token`, which must equal the server's `DEMO_ADMIN_TOKEN` environment variable (compared in constant time).
+Every endpoint below requires `Authorization: Bearer <access token>` (same verification as `api/recommendations.md`) **and** the permission `demo:write` in the token's `permissions` claim. The permission comes from the `Admin` role in Auth0 (RBAC on the Campus Pulse API, with "Add Permissions in the Access Token").
 
-- If `DEMO_ADMIN_TOKEN` is **not set**, the feature is off: every endpoint returns **404**, whatever the request contains.
-- A missing or wrong token returns **401** before any input is validated, so unauthenticated callers learn nothing about valid inputs.
+| Request | Status |
+|---|---|
+| No or invalid token | **401** |
+| Valid UW token without `demo:write` | **403** |
+| Server not configured for sign-in | **503** |
 
-Interim design: a shared secret until login tokens are verified on the backend; it will then become an admin role in the access token.
+Auth is checked before input is validated, so callers without the permission learn nothing about valid inputs. (This replaced the shared `DEMO_ADMIN_TOKEN` secret on 2026-11-06.)
+
+## `GET /api/me`
+
+The signed-in user, so the frontend can decide whether to show Demo Controls. **This only hides the controls; the demo endpoints still check the permission themselves.**
+
+**200** `{"email": "student@uw.edu", "is_admin": false}`. 401/403/503 as above (without the `demo:write` requirement).
 
 ## `POST /api/demo`
 
@@ -27,8 +36,8 @@ Create a demo pin.
 
 | Status | When |
 |---|---|
-| 401 | Missing or wrong `X-Admin-Token` |
-| 404 | `DEMO_ADMIN_TOKEN` not set |
+| 401 | No or invalid token |
+| 403 | Token without `demo:write` |
 | 422 | Unknown `building`, or `severity` not `low`/`medium`/`high` |
 | 429 | 5 demo pins are already active |
 
@@ -36,11 +45,11 @@ For `high` severity the server also asks the AI for a headline and safety brief;
 
 ## `DELETE /api/demo/{pin_id}`
 
-Remove one demo pin. **200** `{"status": "removed", "pin_id": "…"}` · **404** if no active pin has that ID (or the feature is off) · **401** as above.
+Remove one demo pin. **200** `{"status": "removed", "pin_id": "…"}` · **404** if no active pin has that ID · **401/403** as above.
 
 ## `POST /api/demo/clear`
 
-Remove all demo pins. **200** `{"status": "cleared"}` · **401** / **404** as above.
+Remove all demo pins. **200** `{"status": "cleared"}` · **401/403** as above.
 
 ## Rules
 
@@ -50,13 +59,14 @@ Remove all demo pins. **200** `{"status": "cleared"}` · **401** / **404** as ab
 
 ## Test plan (`backend/test_demo.py`)
 
-1. Feature off (`DEMO_ADMIN_TOKEN` unset) → 404 for create, delete and clear, even with a token header.
-2. Missing token → 401. Wrong token → 401.
-3. Missing token **and** invalid severity → 401 (auth is checked first).
-4. Valid token → 200; the pin appears in `GET /api/alerts`.
-5. Unknown building → 422. Invalid severity → 422.
-6. Sixth active pin → 429.
-7. Pin is gone from `GET /api/alerts` after 60 seconds (controlled clock).
-8. `DELETE /api/demo/{pin_id}` removes only that pin; an unknown ID → 404.
-9. `POST /api/demo/clear` removes all pins.
-10. High severity never calls the real AI in tests (triage is faked).
+1. No token → 401; invalid token → 401; valid UW token without `demo:write` → 403, for create, delete and clear.
+2. No permission **and** invalid severity → 403 (auth is checked first).
+3. Admin token → 200; the pin appears in `GET /api/alerts`.
+4. Unknown building → 422. Invalid severity → 422.
+5. Sixth active pin → 429.
+6. Pin is gone from `GET /api/alerts` after 60 seconds (controlled clock).
+7. `DELETE /api/demo/{pin_id}` removes only that pin; an unknown ID → 404.
+8. `POST /api/demo/clear` removes all pins.
+9. High severity never calls the real AI in tests (triage is faked).
+10. `GET /api/me` → `is_admin` true with `demo:write`, false without; 401 without a token.
+11. The old `X-Admin-Token` header grants nothing.

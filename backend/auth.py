@@ -35,6 +35,8 @@ class VerificationUnavailable(Exception):
 class AuthenticatedUser:
     sub: str
     email: str
+    # From the token's "permissions" claim (Auth0 RBAC), e.g. {"demo:write"}.
+    permissions: frozenset[str] = frozenset()
 
     @property
     def user_hash(self) -> str:
@@ -100,7 +102,12 @@ class TokenVerifier:
         email = claims.get(EMAIL_CLAIM)
         if not is_uw_email(email):
             raise NotAllowed("Only UW accounts can use this feature")
-        return AuthenticatedUser(sub=claims["sub"], email=email.strip().lower())
+        permissions = claims.get("permissions") or []
+        return AuthenticatedUser(
+            sub=claims["sub"],
+            email=email.strip().lower(),
+            permissions=frozenset(p for p in permissions if isinstance(p, str)),
+        )
 
 
 @lru_cache(maxsize=1)

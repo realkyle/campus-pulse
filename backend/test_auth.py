@@ -4,20 +4,12 @@ import time
 
 import jwt
 import pytest
-from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
 import events
 import main
 from auth import EMAIL_CLAIM, TokenVerifier, get_token_verifier
-
-DOMAIN = "campus-test.us.auth0.com"
-AUDIENCE = "https://campus-pulse-api"
-ISSUER = f"https://{DOMAIN}/"
-SUB = "google-oauth2|1234567890"
-
-SIGNING_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-OTHER_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+from fixtures.tokens import AUDIENCE, DOMAIN, ISSUER, OTHER_KEY, SUB, bearer, make_token, test_verifier
 
 client = TestClient(main.app)
 
@@ -25,28 +17,10 @@ EVENT = {"id": "live-abc", "title": "Workshop", "category": "business", "buildin
          "date": "Nov 05, 2026", "description": "", "url": None}
 
 
-def make_token(key=SIGNING_KEY, algorithm="RS256", **overrides) -> str:
-    claims = {
-        "sub": SUB,
-        "iss": ISSUER,
-        "aud": [AUDIENCE, f"{ISSUER}userinfo"],
-        "exp": int(time.time()) + 600,
-        EMAIL_CLAIM: "student@uw.edu",
-    }
-    claims.update(overrides)
-    claims = {k: v for k, v in claims.items() if v is not None}
-    return jwt.encode(claims, key, algorithm=algorithm)
-
-
-def bearer(token: str) -> dict:
-    return {"Authorization": f"Bearer {token}"}
-
-
 @pytest.fixture(autouse=True)
-def test_verifier():
+def verify_with_test_key():
     """Verify with the test public key instead of downloading the tenant's JWKS."""
-    verifier = TokenVerifier(DOMAIN, AUDIENCE, signing_key_for=lambda token: SIGNING_KEY.public_key())
-    main.app.dependency_overrides[get_token_verifier] = lambda: verifier
+    main.app.dependency_overrides[get_token_verifier] = test_verifier
     events.update_live_cache([EVENT])
     yield
     main.app.dependency_overrides.clear()
