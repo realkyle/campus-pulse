@@ -1,9 +1,9 @@
 """Invented sample events for tests only; never served by the app (api/events.md)."""
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 
 def _days_from_now(n: int) -> str:
-    return (datetime.now(timezone.utc) + timedelta(days=n)).strftime("%b %d, %Y")
+    return (datetime.now(UTC) + timedelta(days=n)).strftime("%b %d, %Y")
 
 
 SAMPLE_EVENTS: list[dict] = [

@@ -1,5 +1,6 @@
 import pytest
-from building_coords import resolve_coordinates, CAMPUS_CENTER
+
+from building_coords import CAMPUS_CENTER, resolve_coordinates
 
 
 def test_exact_abbreviations():
@@ -78,7 +79,6 @@ def test_prompt_shows_a_plain_json_schema():
 
 # ── Scope evidence guard (no pin without evidence in the text) ───────────────
 
-import pytest  # noqa: E402
 
 from building_coords import effective_scope, has_campus_evidence  # noqa: E402
 

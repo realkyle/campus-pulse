@@ -1,5 +1,5 @@
 """Ranking rules (contract: api/recommendations.md, Ranking). Pure functions, no database."""
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -10,7 +10,7 @@ from scoring import (
     rank,
 )
 
-NOW = datetime(2026, 11, 6, 12, tzinfo=timezone.utc)
+NOW = datetime(2026, 11, 6, 12, tzinfo=UTC)
 
 
 def event(event_id: str, title: str, category: str = "social") -> dict:

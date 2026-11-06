@@ -1,11 +1,11 @@
 import logging
 import os
-from datetime import datetime, timezone
-
-logger = logging.getLogger(__name__)
+from datetime import UTC, datetime
 
 from dotenv import load_dotenv
-from supabase import create_client, Client
+from supabase import Client, create_client
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -33,7 +33,7 @@ def log_interaction(hashed_netid: str, event_id: str, category: str, series_key:
             "event_id": event_id,
             "category": category,
             "series_key": series_key,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }).execute()
         return True
     except Exception as e:

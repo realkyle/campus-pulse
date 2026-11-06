@@ -3,9 +3,9 @@ import asyncio
 import logging
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Callable, Optional
+from datetime import UTC, datetime
 
 import httpx
 
@@ -83,9 +83,9 @@ class BusBoard:
         ttl_seconds: float = 30,
         max_age_seconds: float = 600,
         clock: Callable[[], float] = time.time,
-        transport: Optional[httpx.AsyncBaseTransport] = None,
-        max_concurrent: Optional[int] = None,
-        min_interval_seconds: Optional[float] = None,
+        transport: httpx.AsyncBaseTransport | None = None,
+        max_concurrent: int | None = None,
+        min_interval_seconds: float | None = None,
     ) -> None:
         self._stops = stops
         self._ttl = ttl_seconds
@@ -93,13 +93,13 @@ class BusBoard:
         self._clock = clock
         self._transport = transport
         self._data: dict[str, _StopData] = {}
-        self._last_refresh: Optional[float] = None
+        self._last_refresh: float | None = None
         self._lock = asyncio.Lock()
         shared_key = _get_api_key() == "TEST"
         self._max_concurrent = max_concurrent or (1 if shared_key else len(stops))
         self._min_interval = min_interval_seconds if min_interval_seconds is not None else (
             TEST_KEY_SPACING_SECONDS if shared_key else 0.0)
-        self._last_request_start: Optional[float] = None
+        self._last_request_start: float | None = None
 
     async def get(self) -> dict:
         """The response body for GET /api/buses."""
@@ -125,7 +125,7 @@ class BusBoard:
         last_ok = max((d.fetched_at for d in self._data.values()), default=None)
         return {
             "stops": stops,
-            "updated_at": datetime.fromtimestamp(last_ok, tz=timezone.utc).isoformat() if last_ok else None,
+            "updated_at": datetime.fromtimestamp(last_ok, tz=UTC).isoformat() if last_ok else None,
         }
 
     def _is_fresh(self) -> bool:
@@ -143,7 +143,7 @@ class BusBoard:
             async with httpx.AsyncClient(timeout=8, transport=self._transport) as client:
                 results = await asyncio.gather(*(self._fetch_stop(client, slots, s["id"]) for s in self._stops))
             now = self._clock()
-            for stop, arrivals in zip(self._stops, results):
+            for stop, arrivals in zip(self._stops, results, strict=True):  # gather keeps order and length
                 if arrivals is not None:  # a failed stop keeps its last good data
                     self._data[stop["id"]] = _StopData(fetched_at=now, arrivals=arrivals)
 
@@ -157,7 +157,7 @@ class BusBoard:
 
     async def _fetch_stop(
         self, client: httpx.AsyncClient, slots: asyncio.Semaphore, stop_id: str
-    ) -> Optional[tuple[_Arrival, ...]]:
+    ) -> tuple[_Arrival, ...] | None:
         try:
             async with slots:
                 await self._wait_for_spacing()

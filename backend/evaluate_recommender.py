@@ -12,9 +12,8 @@ Run with real data (reads backend/.env; read-only):
 """
 from collections import Counter, defaultdict
 from datetime import datetime
-from typing import Optional
 
-from scoring import InteractionStats, Resolve, UserProfile, series_and_category, rank
+from scoring import InteractionStats, Resolve, UserProfile, rank, series_and_category
 
 
 def leave_last_out(rows: list[dict], resolve: Resolve, k: int = 5) -> dict:
@@ -34,7 +33,7 @@ def leave_last_out(rows: list[dict], resolve: Resolve, k: int = 5) -> dict:
         by_user[row["hashed_netid"]].append(row)
 
     model_hits = popular_hits = evaluated = 0
-    for user, user_rows in by_user.items():
+    for user_rows in by_user.values():
         if len({r["series_key"] for r in user_rows}) < 2:
             continue
         user_rows.sort(key=lambda r: r["timestamp"])
@@ -76,7 +75,7 @@ def _main() -> None:
     live, _ = fetch_live_events(limit=1000)
     by_id = {e["id"]: e for e in live}
 
-    def resolve(event_id: str) -> Optional[tuple[str, str]]:
+    def resolve(event_id: str) -> tuple[str, str] | None:
         event = by_id.get(event_id)
         return (series_key(event["title"]), event["category"]) if event else None
 

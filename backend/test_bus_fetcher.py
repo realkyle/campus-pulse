@@ -1,5 +1,6 @@
 """BusBoard: shared TTL cache over OneBusAway (contract: api/buses.md)."""
 import asyncio
+import itertools
 import time
 
 import httpx
@@ -142,7 +143,7 @@ def test_shared_key_mode_fetches_one_at_a_time_with_spacing():
     oba = TrackingOBA({}, delay=0.01)
     run(board(oba, Clock(), max_concurrent=1, min_interval_seconds=0.1).get())
     assert oba.peak == 1
-    gaps = [b - a for a, b in zip(oba.starts, oba.starts[1:])]
+    gaps = [b - a for a, b in itertools.pairwise(oba.starts)]
     assert len(gaps) == 2 and min(gaps) >= 0.095
 
 

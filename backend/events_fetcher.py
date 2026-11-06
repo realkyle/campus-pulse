@@ -2,8 +2,9 @@ import hashlib
 import html
 import logging
 import re
+from collections.abc import Callable
 from datetime import date, datetime
-from typing import Callable, NamedTuple, Optional
+from typing import NamedTuple
 from zoneinfo import ZoneInfo
 
 import feedparser
@@ -111,7 +112,7 @@ def _header_dates(header_text: str, fallback_year: int) -> list[date]:
     if its month is later ("Dec. 28 – Jan. 3, 2027" starts in 2026).
     """
     dates: list[date] = []
-    next_year: Optional[int] = None
+    next_year: int | None = None
     next_month = 0
     for match in reversed(list(_HEADER_DATE.finditer(header_text))):
         month = _MONTHS[match[1][:3].lower()]
@@ -216,7 +217,7 @@ def _download(url: str) -> str:
 
 def fetch_live_events(
     limit: int = 200,
-    today: Optional[date] = None,
+    today: date | None = None,
     get_text: Callable[[str], str] = _download,
 ) -> tuple[list[dict], bool]:
     """Fetch both calendar feeds and return (upcoming events, any_feed_ok).

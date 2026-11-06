@@ -1,6 +1,7 @@
 import threading
-from datetime import datetime, timedelta, timezone
-from typing import Callable, Generic, TypeVar
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from typing import Generic, TypeVar
 
 Pin = TypeVar("Pin")
 
@@ -10,7 +11,7 @@ class DemoCapacityError(Exception):
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class DemoPinStore(Generic[Pin]):

@@ -1,12 +1,12 @@
 """Tests for reading the UW Alert blog feed (contract: api/alerts.md)."""
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import rss_fetcher
 from rss_fetcher import ALERT_FEED_URL, fetch_alerts
 
 FIXTURES = Path(__file__).parent / "fixtures"
-NOW = datetime(2026, 11, 6, 3, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 11, 6, 3, 0, tzinfo=UTC)
 
 
 def serve(filename: str):

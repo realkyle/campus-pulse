@@ -15,7 +15,7 @@ import argparse
 import hashlib
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -62,7 +62,7 @@ def main() -> int:
     report = evaluate(cases, answers, effective_scope)
     print(render(report))
 
-    run_at = datetime.now(timezone.utc)
+    run_at = datetime.now(UTC)
     result = {
         "label": args.label,
         "run_at": run_at.isoformat(),
