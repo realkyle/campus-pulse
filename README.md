@@ -1,85 +1,41 @@
 # Campus Pulse
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-css382--dyop.vercel.app-blue)](https://css382-dyop.vercel.app)
+[![CI](https://github.com/realkyle/campus-pulse/actions/workflows/ci.yml/badge.svg)](https://github.com/realkyle/campus-pulse/actions/workflows/ci.yml)
+[![Live demo](https://img.shields.io/badge/live%20demo-css382--dyop.vercel.app-blue)](https://css382-dyop.vercel.app)
 
-Real-time interactive campus map displaying live campus events and emergency alerts with personalized recommendations.
-Built with Next.js, FastAPI, OpenStreetMap (Leaflet), and GPT-4o-mini.
+A real-time campus map: official emergency alerts turned into map pins by an LLM, a personalized feed of campus events, and live bus arrivals.
 
-## Deployment
+<!-- Screenshot: add a capture of the live map here, e.g. ![Campus Pulse map](docs-assets/map.png) -->
 
-**Live Site:** https://css382-dyop.vercel.app
+## What it does
 
-> The map and emergency alerts are fully public — no login required.
-> The For You personalized events panel requires a UW email (@uw.edu or @washington.edu) via Google login.
-
-## Stack
-
-| Layer | Tech |
-|---|---|
-| Frontend | Next.js 14 + TypeScript + react-leaflet |
-| Map | OpenStreetMap via Leaflet |
-| Backend | FastAPI + Python 3.11 |
-| AI | GPT-4o-mini (NLP alert summarizer) |
-| Recommender | Hybrid ranking: content affinity + item-item co-clicks + popularity (`backend/scoring.py`) |
-| Events Feed | Trumba RSS (official campus calendar, refreshed hourly) |
-| Database | PostgreSQL / Supabase |
-| Auth | Auth0 (Google login + UW Duo MFA) |
-| Deployment | Vercel (frontend) + Render (backend) |
-
-## Quick Start
-
-### Backend
-
-```bash
-cd backend
-python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-
-cp ../.env.example .env
-# Edit .env and add:
-#   OPENAI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
-#   AUTH0_DOMAIN, AUTH0_AUDIENCE (sign-in verification, see auth0/README.md)
-
-uvicorn main:app --reload --port 8000
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-cp .env.example .env.local
-# Edit .env.local and add:
-#   NEXT_PUBLIC_API_URL=http://localhost:8000
-#   AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, AUTH0_SECRET, APP_BASE_URL (setup: auth0/README.md)
-
-npm run dev         # opens http://localhost:3000
-```
-
-### Test Suites
-
-```bash
-cd backend
-source venv/bin/activate
-
-# NLP summarizer — must show ≥90% (18/20) valid JSON responses
-python test_nlp_summarizer.py
-
-# Unit tests — building coords + recommender threshold logic (no API keys needed)
-python -m pytest -v
-```
+- **Alerts:** polls the official UW Alert feed, uses GPT-4o-mini to extract building, severity and scope, and pins campus incidents on the map. Public, no login.
+- **For You:** ranks upcoming campus events for a signed-in UW student (Google sign-in through UW NetID + Duo) and explains each pick, e.g. *"Because you liked Technology events"*.
+- **Buses:** next arrivals at the stops near campus, from OneBusAway.
 
 ## Architecture
 
+```mermaid
+flowchart LR
+  U["Browser"] -->|"pages, /auth/*"| V["Next.js 16 on Vercel<br/>Auth0 session"]
+  U -->|"public API + Bearer JWT (For You)"| R["FastAPI on Render"]
+  V -.->|"login"| Z["Auth0 + Google<br/>→ UW NetID + Duo"]
+  R -.->|"signing keys (JWKS)"| Z
+  R --> O["OpenAI gpt-4o-mini"]
+  R --> A["UW Alert RSS"]
+  R --> T["Campus calendar RSS"]
+  R --> B["OneBusAway"]
+  R --> S[("Supabase Postgres")]
+  G["GitHub Actions"] -->|"lint + tests, deploy hook,<br/>verify live version"| R
 ```
-Browser
-  └─► Next.js on Vercel (css382-dyop.vercel.app)
-        ├─ CampusMap (react-leaflet / OpenStreetMap)
-        ├─ For You panel (hybrid recommender + search + infinite scroll)
-        └─► FastAPI on Render (css382-dyop.onrender.com)
-              ├─ Alert poller (5 min) → UW Alerts RSS → GPT-4o-mini → map pins
-              ├─ Events poller (60 min) → Trumba RSS → category inference → For You feed
-              ├─ Building coords lookup → pin placement on map
-              ├─ Supabase → interaction logging + recommendations
-              └─ Auth0 → Google login + UW Duo MFA → hashed user ID
-```
+
+Background loops refresh alerts (5 min) and events (60 min) into memory, so API requests never wait on a feed or the LLM.
+
+## Highlights
+
+- **The backend verifies every sign-in itself.** It used to accept any user ID sent by the browser. Now FastAPI checks an Auth0 RS256 JWT against the tenant's public keys and enforces UW-only access server-side. Admin features need an RBAC permission in the token. Production probes return 401 for a missing, forged, or old-style request.
+- **The LLM is measured, not trusted.** A labeled set of 34 alerts weighs errors by real-world harm (an under-called emergency is critical). Prompt iterations raised severity accuracy from 88% to 97–100% with zero under-calls. When prompt tweaks kept trading one mis-placed pin for another, a controlled run rejected my hypothesis, and a deterministic guard now refuses to pin an alert unless the text itself shows it's on this campus.
+- **Silent failures, found and fixed.** The alert feed URL pointed at an always-empty comments feed while reporting "healthy", and a date regex dropped 408 of 411 events. Structured fields and fixture tests from the real feeds took events from **3 to 406**.
+- **A recommender that can actually learn.** SVD on click-only data ranked about as well as random (measured), so I replaced it with an explainable hybrid score (category affinity, other dates of an opened series, item-item co-clicks, popularity, soonness) plus an offline leave-last-out evaluation against a popularity baseline.
+
+More detail, with evidence for each change: [ENGINEERING.md](ENGINEERING.md).
