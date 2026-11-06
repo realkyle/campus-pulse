@@ -10,3 +10,28 @@ def test_removed_netid_login_endpoint_returns_404():
     # The old typed-NetID login had no password; it must stay gone.
     response = client.post("/api/login", json={"netid": "someone"})
     assert response.status_code == 404
+
+
+def test_lifespan_starts_and_stops_background_loops(monkeypatch):
+    import asyncio
+
+    started: list[str] = []
+    cancelled: list[str] = []
+
+    def fake_loop(name):
+        async def loop():
+            started.append(name)
+            try:
+                await asyncio.Event().wait()  # run until cancelled, like the real loops
+            except asyncio.CancelledError:
+                cancelled.append(name)
+                raise
+        return loop
+
+    monkeypatch.setattr(main, "poll_loop", fake_loop("alerts"))
+    monkeypatch.setattr(main, "events_loop", fake_loop("events"))
+
+    with TestClient(main.app) as running:  # context manager runs the lifespan
+        assert running.get("/api/health").status_code == 200
+        assert sorted(started) == ["alerts", "events"]
+    assert sorted(cancelled) == ["alerts", "events"]

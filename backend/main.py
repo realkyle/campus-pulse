@@ -3,6 +3,7 @@ import logging
 import os
 import secrets
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Literal, Optional
 
@@ -29,7 +30,22 @@ from bus_fetcher import fetch_all_stops
 
 load_dotenv()
 
-app = FastAPI(title="Campus Pulse API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start the background polling loops with the server and stop them on shutdown.
+
+    Holding the task references matters: asyncio keeps only weak references to
+    tasks, so a task nobody holds can be garbage-collected mid-run.
+    """
+    tasks = [asyncio.create_task(poll_loop()), asyncio.create_task(events_loop())]
+    yield
+    for task in tasks:
+        task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+
+
+app = FastAPI(title="Campus Pulse API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -163,21 +179,13 @@ EVENTS_REFRESH_SECONDS = 3600  # 1 hour
 async def events_loop() -> None:
     while True:
         try:
-            events, ok = await asyncio.get_event_loop().run_in_executor(
-                None, fetch_live_events
-            )
+            events, ok = await asyncio.to_thread(fetch_live_events)
             if ok and events:
                 update_live_cache(events)
                 logger.info("Events cache updated: %d live events", len(events))
         except Exception as e:
             logger.error("events_loop error: %s", e)
         await asyncio.sleep(EVENTS_REFRESH_SECONDS)
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    asyncio.create_task(poll_loop())
-    asyncio.create_task(events_loop())
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -187,7 +195,7 @@ _bus_cache: list[dict] = []
 @app.get("/api/buses")
 async def get_buses() -> dict:
     global _bus_cache
-    stops = await asyncio.get_event_loop().run_in_executor(None, fetch_all_stops)
+    stops = await asyncio.to_thread(fetch_all_stops)
     # Only update cache if we got real data — serve stale on API failure
     if any(s["arrivals"] for s in stops):
         _bus_cache = stops
