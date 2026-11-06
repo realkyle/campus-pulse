@@ -61,7 +61,7 @@ npm install
 cp .env.example .env.local
 # Edit .env.local and add:
 #   NEXT_PUBLIC_API_URL=http://localhost:8000
-#   AUTH0_SECRET, AUTH0_BASE_URL, AUTH0_ISSUER_BASE_URL, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET
+#   AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, AUTH0_SECRET, APP_BASE_URL (setup: auth0/README.md)
 
 npm run dev         # opens http://localhost:3000
 ```

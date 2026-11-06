@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { useUser } from "@auth0/nextjs-auth0/client";
+import { useUser } from "@auth0/nextjs-auth0";
 import AlertBanner from "@/components/AlertBanner";
 import RecommendationsPanel from "@/components/RecommendationsPanel";
 import type { AlertPin, BusStop } from "@/components/CampusMap";
@@ -83,7 +83,7 @@ export default function HomePage() {
     localStorage.removeItem("major");
     localStorage.removeItem("hashed_netid");
     localStorage.removeItem("hashed_netid_source");
-    window.location.href = "/api/auth/logout";
+    window.location.href = "/auth/logout";
   }
 
   async function fetchAlerts() {
@@ -253,7 +253,7 @@ export default function HomePage() {
             </div>
           ) : (
             <a
-              href="/api/auth/login"
+              href="/auth/login"
               style={{
                 fontSize: 12,
                 color: colors.blueLight,
