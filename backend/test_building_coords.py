@@ -60,3 +60,17 @@ def test_mentions_campus_whole_word():
     from building_coords import mentions_campus
     assert mentions_campus("Police near UW1 on the Bothell campus")
     assert not mentions_campus("Alert at all campuses")
+
+
+def test_every_building_code_has_a_name_in_the_prompt():
+    from building_coords import BUILDING_CODES, BUILDING_NAMES
+    from nlp_summarizer import SYSTEM_PROMPT
+    assert set(BUILDING_NAMES) == set(BUILDING_CODES)
+    for code in BUILDING_CODES:
+        assert f"{code} = {BUILDING_NAMES[code]}" in SYSTEM_PROMPT
+
+
+def test_prompt_shows_a_plain_json_schema():
+    from nlp_summarizer import SYSTEM_PROMPT
+    assert "JSON schema:\n{\n" in SYSTEM_PROMPT
+    assert "{{" not in SYSTEM_PROMPT and "}}" not in SYSTEM_PROMPT

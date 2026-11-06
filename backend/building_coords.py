@@ -11,6 +11,21 @@ CAMPUS_CENTER = (47.75927, -122.19120)
 # the two can't drift apart). Each must be a key of BUILDING_COORDS.
 BUILDING_CODES = ("UW1", "UW2", "DISC", "LIB", "ARC", "HH", "NCH", "CC")
 
+# Names the AI is told for each code, so "near the Campus Center" maps to CC.
+BUILDING_NAMES = {
+    "UW1": "Founders Hall (UW1)",
+    "UW2": "Commons Hall (UW2)",
+    "DISC": "Discovery Hall",
+    "LIB": "Library (LB1, LBA annex)",
+    "ARC": "Activities and Recreation Center",
+    "HH": "Husky Hall",
+    "NCH": "North Creek Hall",
+    "CC": "Campus Center",
+}
+
+# Streets at or next to this campus; any other named street or building is elsewhere.
+CAMPUS_STREETS = ("Campus Way NE", "Beardslee Blvd", "108th Ave NE", "110th Ave NE")
+
 # Keyed by codes and full names. Coordinates are (lat, lng).
 BUILDING_COORDS: dict[str, tuple[float, float]] = {
     "UW1": (47.75884, -122.19067),
