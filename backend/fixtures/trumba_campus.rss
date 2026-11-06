@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<rss xmlns:x-trumba="http://schemas.trumba.com/rss/x-trumba" version="2.0">
+	<channel>
+		<title>Campus Events</title>
+		<item>
+			<title>Resume Workshop</title>
+			<description>Thursday, Nov. 5, 2026, 10&amp;nbsp;&amp;ndash;&amp;nbsp;11&amp;nbsp;a.m.&amp;nbsp;PST &lt;br/&gt;&lt;br/&gt;Bring a draft resume for career advice. &lt;a href=&quot;https://uw.joinhandshake.com/stu/events/12345?ref=cat&quot; target=&quot;_blank&quot;&gt;Register in Handshake&lt;/a&gt;&lt;br/&gt;&lt;br/&gt;&lt;b&gt;Event interval&lt;/b&gt;:&amp;nbsp;Single day event &lt;br/&gt;&lt;b&gt;Location Type&lt;/b&gt;:&amp;nbsp;In-person &lt;br/&gt;&lt;b&gt;Campus location&lt;/b&gt;:&amp;nbsp;Founder&amp;#39;s Hall (UW1) &lt;br/&gt;</description>
+			<link>https://calendar.example.edu/event?eventid=1001</link>
+			<category>2026/11/05 (Thu)</category>
+			<guid isPermaLink="false">http://uid.trumba.com/event/1001</guid>
+		</item>
+		<item>
+			<title>Old Lecture</title>
+			<description>Wednesday, Nov. 4, 2026, 10&amp;nbsp;&amp;ndash;&amp;nbsp;11&amp;nbsp;a.m.&amp;nbsp;PST &lt;br/&gt;&lt;br/&gt;A research talk that already happened.&lt;br/&gt;&lt;br/&gt;&lt;b&gt;Event interval&lt;/b&gt;:&amp;nbsp;Single day event &lt;br/&gt;&lt;b&gt;Location Type&lt;/b&gt;:&amp;nbsp;In-person &lt;br/&gt;&lt;b&gt;Campus location&lt;/b&gt;:&amp;nbsp;Commons Hall (UW2) &lt;br/&gt;</description>
+			<link>https://calendar.example.edu/event?eventid=1002</link>
+			<category>2026/11/04 (Wed)</category>
+			<guid isPermaLink="false">http://uid.trumba.com/event/1002</guid>
+		</item>
+		<item>
+			<title>Holiday Plant Sale</title>
+			<description>Ongoing through Sunday, Nov. 8, 2026 &lt;br/&gt;&lt;br/&gt;Seasonal greenery for sale.&lt;br/&gt;&lt;br/&gt;&lt;b&gt;Event interval&lt;/b&gt;:&amp;nbsp;Ongoing event &lt;br/&gt;&lt;b&gt;Location Type&lt;/b&gt;:&amp;nbsp;In-person &lt;br/&gt;</description>
+			<link>https://calendar.example.edu/event?eventid=1003</link>
+			<category>2026/10/01 (Thu)</category>
+			<guid isPermaLink="false">http://uid.trumba.com/event/1003</guid>
+		</item>
+		<item>
+			<title>Study Abroad Week</title>
+			<description>Sunday, Dec. 6 &amp;ndash; Saturday, Dec. 12, 2026 &lt;br/&gt;&lt;br/&gt;Meet students who studied abroad.&lt;br/&gt;&lt;br/&gt;&lt;b&gt;Event interval&lt;/b&gt;:&amp;nbsp;Ongoing event &lt;br/&gt;&lt;b&gt;Location Type&lt;/b&gt;:&amp;nbsp;In-person &lt;br/&gt;&lt;b&gt;Campus location&lt;/b&gt;:&amp;nbsp;Library - LBA (Annex) &lt;br/&gt;</description>
+			<link>https://calendar.example.edu/event?eventid=1004</link>
+			<category>2026/12/06 (Sun)</category>
+			<guid isPermaLink="false">http://uid.trumba.com/event/1004</guid>
+		</item>
+		<item>
+			<title>Winter Reading Challenge</title>
+			<description>Monday, Dec. 28 &amp;ndash; Sunday, Jan. 3, 2027 &lt;br/&gt;&lt;br/&gt;Read three books over the break.&lt;br/&gt;&lt;br/&gt;&lt;b&gt;Event interval&lt;/b&gt;:&amp;nbsp;Ongoing event &lt;br/&gt;&lt;b&gt;Location Type&lt;/b&gt;:&amp;nbsp;Online &lt;br/&gt;</description>
+			<link>https://calendar.example.edu/event?eventid=1005</link>
+			<category>2026/12/28 (Mon)</category>
+			<guid isPermaLink="false">http://uid.trumba.com/event/1005</guid>
+		</item>
+		<item>
+			<title>AI Community of Practice</title>
+			<description>Zoom &lt;br/&gt;Friday, Nov. 6, 2026, 10&amp;nbsp;&amp;ndash;&amp;nbsp;11&amp;nbsp;a.m.&amp;nbsp;PST &lt;br/&gt;&lt;br/&gt;Monthly discussion of AI tools in teaching.&lt;br/&gt;&lt;br/&gt;&lt;b&gt;Event interval&lt;/b&gt;:&amp;nbsp;Single day event &lt;br/&gt;&lt;b&gt;Location Type&lt;/b&gt;:&amp;nbsp;Online &lt;br/&gt;</description>
+			<link>https://calendar.example.edu/event?eventid=1006</link>
+			<category>2026/11/06 (Fri)</category>
+			<guid isPermaLink="false">http://uid.trumba.com/event/1006</guid>
+		</item>
+		<item>
+			<title>Fall Kickoff</title>
+			<description>Tuesday, Sept. 14, 2027, 10&amp;nbsp;&amp;ndash;&amp;nbsp;11&amp;nbsp;a.m.&amp;nbsp;PST &lt;br/&gt;&lt;br/&gt;Welcome back gathering.&lt;br/&gt;&lt;br/&gt;&lt;b&gt;Event interval&lt;/b&gt;:&amp;nbsp;Single day event &lt;br/&gt;&lt;b&gt;Location Type&lt;/b&gt;:&amp;nbsp;In-person &lt;br/&gt;&lt;b&gt;Campus location&lt;/b&gt;:&amp;nbsp;Activities &amp;amp; Recreation Center (ARC) &lt;br/&gt;</description>
+			<link>https://calendar.example.edu/event?eventid=1007</link>
+			<category>2027/09/14 (Tue)</category>
+			<guid isPermaLink="false">http://uid.trumba.com/event/1007</guid>
+		</item>
+		<item>
+			<title>Staff Appreciation Party</title>
+			<description>Thursday, Nov. 5, 2026, 10&amp;nbsp;&amp;ndash;&amp;nbsp;11&amp;nbsp;a.m.&amp;nbsp;PST &lt;br/&gt;&lt;br/&gt;Our chair said the start time is flexible.&lt;br/&gt;&lt;br/&gt;&lt;b&gt;Event interval&lt;/b&gt;:&amp;nbsp;Single day event &lt;br/&gt;&lt;b&gt;Location Type&lt;/b&gt;:&amp;nbsp;In-person &lt;br/&gt;&lt;b&gt;Campus location&lt;/b&gt;:&amp;nbsp;Somewhere New &lt;br/&gt;</description>
+			<link>https://calendar.example.edu/event?eventid=1008</link>
+			<category>2026/11/05 (Thu)</category>
+			<guid isPermaLink="false">http://uid.trumba.com/event/1008</guid>
+		</item>
+	</channel>
+</rss>

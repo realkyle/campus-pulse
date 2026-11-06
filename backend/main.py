@@ -26,7 +26,7 @@ from nlp_summarizer import AlertSummary, summarize, triage
 from database import log_interaction
 from recommender import get_recommendations
 from events_fetcher import fetch_live_events
-from events import update_live_cache
+from events import get_all_events, update_live_cache
 from bus_fetcher import fetch_all_stops
 
 load_dotenv()
@@ -145,9 +145,8 @@ async def get_buses() -> dict:
 
 @app.get("/api/events")
 async def get_events() -> dict:
-    from events import get_all_events
     events = get_all_events()
-    return {"events": events, "count": len(events), "source": "live" if any(e["id"].startswith("live-") for e in events) else "static"}
+    return {"events": events, "count": len(events), "source": "live" if events else "none"}
 
 
 @app.get("/api/alerts", response_model=AlertsResponse)
