@@ -20,7 +20,7 @@ Auth0's built-in Google development keys are fine for testing. For production, c
 ## 2. API (lets the backend verify sign-ins)
 
 1. **Applications → APIs → Create API**: name `Campus Pulse API`, identifier `https://campus-pulse-api`, signing algorithm **RS256**. The identifier is the token's *audience*; it can't be changed later.
-2. If the API has an **Application Access** (or similar) tab, allow the `Campus Pulse` application to request tokens for it for users.
+2. In the API's **Application Access Policy**, allow **user access** for the `Campus Pulse` application (or allow all applications). Otherwise sign-in fails with `invalid_request`, because the app may not request tokens for this API.
 
 ## 3. UW-only Action
 
