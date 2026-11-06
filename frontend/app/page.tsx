@@ -39,6 +39,19 @@ export default function HomePage() {
   const [hashedNetid, setHashedNetid] = useState<string | null>(null);
   const [major, setMajor] = useState<string | null>(null);
   const [showAlertList, setShowAlertList] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  // lib/auth0.ts redirects here with ?login_error=uw_only|failed after a refused login.
+  useEffect(() => {
+    const reason = new URLSearchParams(window.location.search).get("login_error");
+    if (!reason) return;
+    setLoginError(
+      reason === "uw_only"
+        ? "Only UW accounts (@uw.edu or @washington.edu) can sign in. Sign in again and choose your UW Google account."
+        : "Sign-in failed. Please try again."
+    );
+    window.history.replaceState(null, "", window.location.pathname); // so a refresh doesn't show it again
+  }, []);
 
   useEffect(() => {
     const storedMajor = localStorage.getItem("major");
@@ -270,6 +283,13 @@ export default function HomePage() {
           )}
         </div>
       </header>
+
+      {loginError && (
+        <div role="alert" style={{ background: colors.highBg, color: colors.highText, padding: "8px 16px", fontSize: 13, display: "flex", justifyContent: "space-between", gap: 12 }}>
+          <span>{loginError}</span>
+          <button onClick={() => setLoginError(null)} aria-label="Dismiss" style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: 14 }}>✕</button>
+        </div>
+      )}
 
       {/* Status banners */}
       {data && (

@@ -12,12 +12,23 @@ import { isUwEmail } from "./uwEmail";
  * non-UW login is sent straight to /auth/logout, which clears it.
  */
 export const auth0 = new Auth0Client({
+  authorizationParameters: {
+    // Always show the login screen. Without this, Auth0 silently reuses the
+    // last session: after a refused (non-UW) login, every "Sign in" click was
+    // refused again instantly and bounced back home, with no way to switch accounts.
+    prompt: "login",
+  },
   async onCallback(error, context, session) {
     const base = context.appBaseUrl ?? process.env.APP_BASE_URL ?? "http://localhost:3000";
     if (error) {
-      return NextResponse.redirect(new URL("/?login_error=failed", base));
+      // The UW-only Action refuses a login with OAuth error "access_denied".
+      const code = (error as { cause?: { code?: string } }).cause?.code;
+      const reason = code === "access_denied" ? "uw_only" : "failed";
+      console.error("Login failed:", code ?? error.message);
+      return NextResponse.redirect(new URL(`/?login_error=${reason}`, base));
     }
     if (session && !isUwEmail(session.user.email)) {
+      // Sent to logout to clear the session; the Action normally blocks this earlier.
       return NextResponse.redirect(new URL("/auth/logout", base));
     }
     return NextResponse.redirect(new URL(context.returnTo ?? "/", base));
