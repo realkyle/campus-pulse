@@ -343,7 +343,7 @@ export default function HomePage() {
               { layer: "Map",       tech: "OpenStreetMap + Leaflet" },
               { layer: "Backend",   tech: "FastAPI + Python 3.11" },
               { layer: "AI Alerts", tech: "GPT-4o-mini (OpenAI)" },
-              { layer: "Recommender", tech: "Surprise (SVD)" },
+              { layer: "Recommender", tech: "Hybrid: content + co-clicks" },
               { layer: "Database",  tech: "PostgreSQL / Supabase" },
               { layer: "Auth",       tech: "Auth0 (UW login)" },
               { layer: "Deployment", tech: "Vercel + Render" },

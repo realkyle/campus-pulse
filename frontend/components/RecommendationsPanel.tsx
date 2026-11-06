@@ -13,6 +13,8 @@ interface Event {
   date: string;
   description: string;
   url?: string;
+  /** Why it was recommended, e.g. "Because you liked Technology events" (api/recommendations.md). */
+  reason?: string;
 }
 
 interface Props {
@@ -31,9 +33,8 @@ const CATEGORY_COLOR: Record<string, string> = {
 };
 
 const MODE_LABEL: Record<string, string> = {
-  "cold-start":              "Seeded by major",
-  "popularity":              "Trending on campus",
-  "collaborative-filtering": "Personalized for you",
+  "cold-start":   "Starter picks",
+  "personalized": "Personalized for you",
 };
 
 export default function RecommendationsPanel({ major, onMajorChange }: Props) {
@@ -344,6 +345,9 @@ export default function RecommendationsPanel({ major, onMajorChange }: Props) {
                 <div style={{ fontSize: 11, color: colors.textFaint }}>
                   {event.building} · {event.date}
                 </div>
+                {event.reason && (
+                  <div style={{ fontSize: 11, color: colors.blueLight, marginTop: 2 }}>{event.reason}</div>
+                )}
                 <div style={{ fontSize: 11, color: colors.textDimmer, marginTop: 4, lineHeight: 1.4 }}>
                   {event.description}
                 </div>

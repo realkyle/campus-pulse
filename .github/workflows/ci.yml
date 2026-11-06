@@ -19,7 +19,6 @@ jobs:
         run: |
           cd backend
           pip install -r requirements.txt
-          pip install "numpy<2"
       - name: Run tests
         run: |
           cd backend
@@ -88,7 +87,7 @@ jobs:
       - name: Wait for the new version to go live
         if: steps.changes.outputs.backend == 'true'
         # /api/health returns the deployed commit (api/health.md). Poll every
-        # 15 s for up to 20 minutes; the build compiles scikit-surprise, which is slow.
+        # 15 s for up to 20 minutes (build + start on Render).
         run: |
           for attempt in $(seq 1 80); do
             version=$(curl -fsS -m 20 "$BACKEND_URL/api/health" \
