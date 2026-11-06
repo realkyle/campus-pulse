@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from building_coords import BUILDING_COORDS, CAMPUS_CENTER, CAMPUS_KEYWORDS, resolve_coordinates
+from building_coords import BUILDING_COORDS, CAMPUS_CENTER, effective_scope, resolve_coordinates
 from rss_fetcher import fetch_alerts
 from alert_pipeline import AlertPin, AlertPipeline, AlertsResponse
 from auth import AuthenticatedUser, get_current_user
@@ -96,7 +96,7 @@ alert_pipeline = AlertPipeline(
     triage=triage,
     resolve_coordinates=resolve_coordinates,
     fallback_coordinates=CAMPUS_CENTER,
-    campus_keywords=CAMPUS_KEYWORDS,
+    scope_for=effective_scope,
 )
 
 

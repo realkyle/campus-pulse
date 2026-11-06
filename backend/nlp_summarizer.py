@@ -7,30 +7,51 @@ import openai
 from openai import OpenAI
 from pydantic import BaseModel, ValidationError
 
-from building_coords import BUILDING_CODES, CAMPUS_NAME
+from building_coords import BUILDING_CODES, BUILDING_NAMES, CAMPUS_NAME, CAMPUS_STREETS
 
 logger = logging.getLogger(__name__)
 
+_BUILDING_LIST = "\n".join(f"  {code} = {BUILDING_NAMES[code]}" for code in BUILDING_CODES)
+
+# v2 (2026-11-06): rules added from the baseline evaluation's failures
+# (evals/results/*-baseline.json). Rules are general; never copy eval cases in.
 SYSTEM_PROMPT = f"""You are a campus safety alert parser for {CAMPUS_NAME}, one of several University of Washington campuses.
 Given raw alert text, return ONLY a valid JSON object — no markdown, no extra text.
 
 JSON schema:
 {{
   "building_name": "<{"|".join(BUILDING_CODES)}|CAMPUS>",
-  "incident_type": "<e.g. Police Activity|Medical Emergency|Fire|Suspicious Person|Weather|Utility Outage|All-Clear>",
+  "incident_type": "<e.g. Police Activity|Medical Emergency|Fire|Suspicious Person|Weather|Health Advisory|Utility Outage|All-Clear>",
   "severity": "<low|medium|high>",
   "recommended_action": "<concise student instruction, max 20 words>",
   "scope": "<campus|university_wide|other_campus>"
 }}
 
-Rules:
-- severity=high: active threat, police, fire, evacuation
-- severity=medium: medical, suspicious activity, utility outage
-- severity=low: all-clear, informational, minor disruption
-- scope=campus: the incident is at {CAMPUS_NAME}
-- scope=university_wide: affects all UW campuses (e.g. system tests, drills, weather or smoke advisories)
-- scope=other_campus: about a location at another UW campus (e.g. Seattle streets or buildings)
-- If no {CAMPUS_NAME} building is mentioned, use CAMPUS."""
+{CAMPUS_NAME} buildings (code = name):
+{_BUILDING_LIST}
+{CAMPUS_NAME} streets: {", ".join(CAMPUS_STREETS)}.
+
+Scope rules:
+- scope=campus: the alert names {CAMPUS_NAME}, one of its buildings or streets, or a place right next to it.
+- scope=other_campus: the alert names any other place (another UW campus, or a building, street or
+  neighborhood that is not listed above), even if no city is named.
+- scope=university_wide: the alert names no specific place and applies to all UW campuses or the region
+  (system tests, drills, closures, weather or smoke advisories).
+
+Severity rules, applied in this order:
+1. low: the incident is over or was never real: all-clear, "response completed", area reopened,
+   false alarm, harmless, test, drill or training. This applies even if the text mentions police or fire.
+2. high: an ongoing threat to people: active threat, armed person, police activity with avoid/shelter
+   instructions, fire, explosion or bomb threat, gas leak, hazardous materials, any evacuation or
+   shelter-in-place instruction.
+3. medium: medical emergency, suspicious person or package, utility or network outage, road or area
+   closure, campus closure, health advisory (smoke, heat, disease, dangerous animals), or an emergency
+   response that only closes an area without evacuate/shelter instructions.
+4. low: anything else informational (reminders, schedule changes, minor disruptions).
+
+Building: use the code of the named {CAMPUS_NAME} building; use CAMPUS if none is named or scope isn't campus."""
+
+MODEL = "gpt-4o-mini"
 
 _client: OpenAI | None = None
 
@@ -76,7 +97,7 @@ def triage(raw_text: str, summary: AlertSummary) -> AlertTriage | None:
             f"Raw alert: {raw_text}"
         )
         response = _get_client().chat.completions.create(
-            model="gpt-4o-mini",
+            model=MODEL,
             messages=[
                 {"role": "system", "content": TRIAGE_PROMPT},
                 {"role": "user", "content": context},
@@ -103,7 +124,7 @@ def summarize(raw_text: str) -> tuple[AlertSummary | None, bool]:
     """
     try:
         response = _get_client().chat.completions.create(
-            model="gpt-4o-mini",
+            model=MODEL,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": f"Alert text: {raw_text}"},

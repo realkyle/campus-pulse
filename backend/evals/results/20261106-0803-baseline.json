@@ -1,0 +1,252 @@
+{
+  "label": "baseline",
+  "run_at": "2026-11-06T08:03:10.635702+00:00",
+  "model": "gpt-4o-mini",
+  "prompt_sha256": "b3b4b2a94129",
+  "report": {
+    "cases": 34,
+    "counts": {
+      "severity": 34,
+      "scope": 34,
+      "building": 19
+    },
+    "accuracy": {
+      "severity": 0.8823529411764706,
+      "scope": 0.9705882352941176,
+      "building": 0.9473684210526315
+    },
+    "critical": {
+      "under_call": [],
+      "hidden_alert": [],
+      "false_alarm": [],
+      "wrong_pin": [
+        "o08"
+      ]
+    },
+    "unusable": [],
+    "severity_confusion": {
+      "high": {
+        "high": 13
+      },
+      "medium": {
+        "medium": 7,
+        "low": 2,
+        "high": 1
+      },
+      "low": {
+        "low": 10,
+        "medium": 1
+      }
+    },
+    "failures": [
+      {
+        "id": "c12",
+        "field": "building",
+        "expected": "CC",
+        "got": "CAMPUS"
+      },
+      {
+        "id": "u02",
+        "field": "severity",
+        "expected": "medium",
+        "got": "low"
+      },
+      {
+        "id": "o01",
+        "field": "severity",
+        "expected": "low",
+        "got": "medium"
+      },
+      {
+        "id": "o03",
+        "field": "severity",
+        "expected": "medium",
+        "got": "low"
+      },
+      {
+        "id": "o06",
+        "field": "severity",
+        "expected": "medium",
+        "got": "high"
+      },
+      {
+        "id": "o08",
+        "field": "scope",
+        "expected": "other_campus",
+        "got": "campus"
+      }
+    ]
+  },
+  "answers": {
+    "c01": {
+      "severity": "high",
+      "scope": "campus",
+      "building": "UW1"
+    },
+    "c02": {
+      "severity": "high",
+      "scope": "campus",
+      "building": "DISC"
+    },
+    "c03": {
+      "severity": "high",
+      "scope": "campus",
+      "building": "LIB"
+    },
+    "c04": {
+      "severity": "medium",
+      "scope": "campus",
+      "building": "ARC"
+    },
+    "c05": {
+      "severity": "medium",
+      "scope": "campus",
+      "building": "HH"
+    },
+    "c06": {
+      "severity": "medium",
+      "scope": "campus",
+      "building": "UW2"
+    },
+    "c07": {
+      "severity": "high",
+      "scope": "campus",
+      "building": "NCH"
+    },
+    "c11": {
+      "severity": "medium",
+      "scope": "campus",
+      "building": "CAMPUS"
+    },
+    "c12": {
+      "severity": "high",
+      "scope": "campus",
+      "building": "CAMPUS"
+    },
+    "c14": {
+      "severity": "high",
+      "scope": "campus",
+      "building": "DISC"
+    },
+    "c16": {
+      "severity": "high",
+      "scope": "campus",
+      "building": "CAMPUS"
+    },
+    "c08": {
+      "severity": "low",
+      "scope": "campus",
+      "building": "UW1"
+    },
+    "c09": {
+      "severity": "low",
+      "scope": "campus",
+      "building": "DISC"
+    },
+    "c10": {
+      "severity": "low",
+      "scope": "campus",
+      "building": "UW2"
+    },
+    "c13": {
+      "severity": "low",
+      "scope": "campus",
+      "building": "LIB"
+    },
+    "c15": {
+      "severity": "low",
+      "scope": "campus",
+      "building": "UW1"
+    },
+    "u01": {
+      "severity": "low",
+      "scope": "university_wide",
+      "building": "CAMPUS"
+    },
+    "u02": {
+      "severity": "low",
+      "scope": "university_wide",
+      "building": "CAMPUS"
+    },
+    "u03": {
+      "severity": "medium",
+      "scope": "university_wide",
+      "building": "CAMPUS"
+    },
+    "u04": {
+      "severity": "medium",
+      "scope": "university_wide",
+      "building": "CAMPUS"
+    },
+    "u05": {
+      "severity": "low",
+      "scope": "university_wide",
+      "building": "CAMPUS"
+    },
+    "u06": {
+      "severity": "low",
+      "scope": "university_wide",
+      "building": "CAMPUS"
+    },
+    "o01": {
+      "severity": "medium",
+      "scope": "other_campus",
+      "building": "CAMPUS"
+    },
+    "o02": {
+      "severity": "high",
+      "scope": "other_campus",
+      "building": "CAMPUS"
+    },
+    "o03": {
+      "severity": "low",
+      "scope": "other_campus",
+      "building": "CAMPUS"
+    },
+    "o04": {
+      "severity": "high",
+      "scope": "other_campus",
+      "building": "CAMPUS"
+    },
+    "o05": {
+      "severity": "medium",
+      "scope": "other_campus",
+      "building": "CAMPUS"
+    },
+    "o06": {
+      "severity": "high",
+      "scope": "other_campus",
+      "building": "CAMPUS"
+    },
+    "o07": {
+      "severity": "high",
+      "scope": "other_campus",
+      "building": "CAMPUS"
+    },
+    "o08": {
+      "severity": "high",
+      "scope": "campus",
+      "building": "CAMPUS"
+    },
+    "a01": {
+      "severity": "high",
+      "scope": "campus",
+      "building": "CAMPUS"
+    },
+    "a02": {
+      "severity": "low",
+      "scope": "campus",
+      "building": "UW2"
+    },
+    "a03": {
+      "severity": "low",
+      "scope": "campus",
+      "building": "NCH"
+    },
+    "a04": {
+      "severity": "high",
+      "scope": "university_wide",
+      "building": "CAMPUS"
+    }
+  }
+}
