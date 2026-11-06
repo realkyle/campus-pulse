@@ -6,11 +6,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 import main
+from auth import get_token_verifier
 from demo_pins import DemoCapacityError, DemoPinStore
+from fixtures.tokens import bearer, make_token, test_verifier
 from nlp_summarizer import AlertTriage
 
-TOKEN = "test-admin-token"
-AUTH = {"X-Admin-Token": TOKEN}
+AUTH = bearer(make_token(permissions=["demo:write"]))      # signed-in admin
+NOT_ADMIN = bearer(make_token(permissions=["read:other"]))  # signed in, no demo:write
 
 # Not used as a context manager, so the startup polling loops never run.
 client = TestClient(main.app)
@@ -50,16 +52,9 @@ def triage_calls(monkeypatch) -> list[str]:
 @pytest.fixture(autouse=True)
 def isolated_demo_state(monkeypatch, clock, triage_calls):
     monkeypatch.setattr(main, "demo_pins", DemoPinStore(clock=clock))
-
-
-@pytest.fixture
-def feature_on(monkeypatch):
-    monkeypatch.setenv("DEMO_ADMIN_TOKEN", TOKEN)
-
-
-@pytest.fixture
-def feature_off(monkeypatch):
-    monkeypatch.delenv("DEMO_ADMIN_TOKEN", raising=False)
+    main.app.dependency_overrides[get_token_verifier] = test_verifier
+    yield
+    main.app.dependency_overrides.clear()
 
 
 def create_pin(**params):
@@ -70,44 +65,35 @@ def alert_ids() -> list[str]:
     return [a["id"] for a in client.get("/api/alerts").json()["alerts"]]
 
 
-# ── Feature off ───────────────────────────────────────────────────────────────
+# ── Authentication and permission ─────────────────────────────────────────────
 
-def test_feature_off_hides_every_endpoint(feature_off):
-    assert create_pin().status_code == 404
-    assert client.delete("/api/demo/demo-abc", headers=AUTH).status_code == 404
-    assert client.post("/api/demo/clear", headers=AUTH).status_code == 404
-
-
-def test_empty_token_setting_counts_as_off(monkeypatch):
-    # .env.example ships DEMO_ADMIN_TOKEN= (empty); that must not enable the feature.
-    monkeypatch.setenv("DEMO_ADMIN_TOKEN", "")
-    assert client.post("/api/demo", headers={"X-Admin-Token": ""}).status_code == 404
-
-
-# ── Authentication ────────────────────────────────────────────────────────────
-
-def test_missing_token_is_rejected(feature_on):
-    assert client.post("/api/demo").status_code == 401
+@pytest.mark.parametrize("headers, status", [
+    ({}, 401),                                   # not signed in
+    (bearer("not-a-jwt"), 401),                  # invalid token
+    ({"X-Admin-Token": "anything"}, 401),        # the old shared secret grants nothing
+    (NOT_ADMIN, 403),                            # signed in without demo:write
+    (bearer(make_token()), 403),                 # signed in, no permissions claim at all
+])
+def test_every_demo_endpoint_requires_the_permission(headers, status):
+    assert client.post("/api/demo", headers=headers).status_code == status
+    assert client.delete("/api/demo/demo-abc", headers=headers).status_code == status
+    assert client.post("/api/demo/clear", headers=headers).status_code == status
 
 
-def test_wrong_token_is_rejected(feature_on):
-    response = client.post("/api/demo", headers={"X-Admin-Token": "wrong"})
-    assert response.status_code == 401
+def test_permission_is_checked_before_input_validation():
+    response = client.post("/api/demo", params={"severity": "extreme"}, headers=NOT_ADMIN)
+    assert response.status_code == 403
 
 
-def test_auth_is_checked_before_input_validation(feature_on):
-    response = client.post("/api/demo", params={"severity": "extreme"})
-    assert response.status_code == 401
-
-
-def test_delete_and_clear_require_token(feature_on):
-    assert client.delete("/api/demo/demo-abc").status_code == 401
-    assert client.post("/api/demo/clear").status_code == 401
+def test_me_reports_admin_status():
+    assert client.get("/api/me", headers=AUTH).json() == {"email": "student@uw.edu", "is_admin": True}
+    assert client.get("/api/me", headers=NOT_ADMIN).json() == {"email": "student@uw.edu", "is_admin": False}
+    assert client.get("/api/me").status_code == 401
 
 
 # ── Creating pins ─────────────────────────────────────────────────────────────
 
-def test_admin_creates_pin_visible_in_alerts(feature_on):
+def test_admin_creates_pin_visible_in_alerts():
     response = create_pin(building="uw2", severity="medium")
     assert response.status_code == 200
     body = response.json()
@@ -117,27 +103,27 @@ def test_admin_creates_pin_visible_in_alerts(feature_on):
     assert body["pin_id"] in alert_ids()
 
 
-def test_unknown_building_is_rejected(feature_on):
+def test_unknown_building_is_rejected():
     assert create_pin(building="NOT-A-BUILDING").status_code == 422
 
 
-def test_invalid_severity_is_rejected(feature_on):
+def test_invalid_severity_is_rejected():
     assert create_pin(severity="extreme").status_code == 422
 
 
-def test_high_severity_uses_triage(feature_on, triage_calls):
+def test_high_severity_uses_triage(triage_calls):
     pin_id = create_pin(building="DISC", severity="high").json()["pin_id"]
     assert triage_calls == ["DISC"]
     pin = next(a for a in client.get("/api/alerts").json()["alerts"] if a["id"] == pin_id)
     assert pin["headline"] == "Test headline"
 
 
-def test_low_severity_skips_triage(feature_on, triage_calls):
+def test_low_severity_skips_triage(triage_calls):
     create_pin(severity="low")
     assert triage_calls == []
 
 
-def test_sixth_active_pin_is_rejected(feature_on):
+def test_sixth_active_pin_is_rejected():
     for _ in range(5):
         assert create_pin().status_code == 200
     assert create_pin().status_code == 429
@@ -145,7 +131,7 @@ def test_sixth_active_pin_is_rejected(feature_on):
 
 # ── Expiry and removal ────────────────────────────────────────────────────────
 
-def test_pin_expires_after_sixty_seconds(feature_on, clock):
+def test_pin_expires_after_sixty_seconds(clock):
     pin_id = create_pin().json()["pin_id"]
     clock.advance(59)
     assert pin_id in alert_ids()
@@ -153,14 +139,14 @@ def test_pin_expires_after_sixty_seconds(feature_on, clock):
     assert pin_id not in alert_ids()
 
 
-def test_expired_pins_free_up_capacity(feature_on, clock):
+def test_expired_pins_free_up_capacity(clock):
     for _ in range(5):
         create_pin()
     clock.advance(60)
     assert create_pin().status_code == 200
 
 
-def test_delete_removes_only_that_pin(feature_on):
+def test_delete_removes_only_that_pin():
     first = create_pin(building="UW1").json()["pin_id"]
     second = create_pin(building="UW2").json()["pin_id"]
     response = client.delete(f"/api/demo/{first}", headers=AUTH)
@@ -168,11 +154,11 @@ def test_delete_removes_only_that_pin(feature_on):
     assert alert_ids() == [second]
 
 
-def test_delete_unknown_pin_is_404(feature_on):
+def test_delete_unknown_pin_is_404():
     assert client.delete("/api/demo/demo-missing", headers=AUTH).status_code == 404
 
 
-def test_clear_removes_all_pins(feature_on):
+def test_clear_removes_all_pins():
     create_pin()
     create_pin()
     assert client.post("/api/demo/clear", headers=AUTH).status_code == 200

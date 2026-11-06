@@ -20,15 +20,24 @@ Auth0's built-in Google development keys are fine for testing. For production, c
 ## 2. API (lets the backend verify sign-ins)
 
 1. **Applications → APIs → Create API**: name `Campus Pulse API`, identifier `https://campus-pulse-api`, signing algorithm **RS256**. The identifier is the token's *audience*; it can't be changed later.
-2. In the API's **Application Access Policy**, allow **user access** for the `Campus Pulse` application (or allow all applications). Otherwise sign-in fails with `invalid_request`, because the app may not request tokens for this API.
+2. In the API's **Access Settings**, turn on **Allow Skipping User Consent** (no "Authorize App" screen for this first-party app; Auth0 still shows it on `localhost`).
+3. In the API's **Application Access Policy**, allow **user access** for the `Campus Pulse` application (or allow all applications). Otherwise sign-in fails with `invalid_request`, because the app may not request tokens for this API.
 
-## 3. UW-only Action
+## 3. Admin role (demo alerts)
+
+1. **Applications → APIs → Campus Pulse API → Settings**: turn on **Enable RBAC** and **Add Permissions in the Access Token**, then **Save**.
+2. **Permissions** tab: add `demo:write` ("Create and clear demo alerts").
+3. **User Management → Roles → Create Role**: `Admin`. In its **Permissions** tab, add `demo:write` from Campus Pulse API.
+4. **User Management → Users →** your account **→ Roles → Assign Roles**: `Admin`.
+5. Sign out and back in. Demo Controls now appear on `/home` for you only (`GET /api/me` → `is_admin: true`).
+
+## 4. UW-only Action
 
 1. **Actions → Library → Build Custom**: name `UW only login`, trigger **Login / Post Login**.
 2. Paste the code from [`actions/uw-only-login.js`](actions/uw-only-login.js) and click **Deploy**.
 3. **Actions → Triggers → post-login**: drag `UW only login` into the flow and click **Apply**.
 
-## 4. Environment variables
+## 5. Environment variables
 
 **Frontend:**
 
@@ -47,7 +56,7 @@ Remove the old v2 variables `AUTH0_BASE_URL` and `AUTH0_ISSUER_BASE_URL` from Ve
 
 If the Auth0 variables are missing, public pages still work and only `/auth/*` returns 503 (see `frontend/proxy.ts`).
 
-## 5. Check
+## 6. Check
 
 1. In `frontend/`, run `npm run dev` and open http://localhost:3000.
 2. Sign in with a UW Google account. You should go through UW NetID + Duo and come back signed in.
