@@ -25,9 +25,10 @@ export const auth0 = new Auth0Client({
     const base = context.appBaseUrl ?? process.env.APP_BASE_URL ?? "http://localhost:3000";
     if (error) {
       // The UW-only Action refuses a login with OAuth error "access_denied".
-      const code = (error as { cause?: { code?: string } }).cause?.code;
-      const reason = code === "access_denied" ? "uw_only" : "failed";
-      console.error("Login failed:", code ?? error.message);
+      const cause = (error as { cause?: { code?: string; message?: string } }).cause;
+      const reason = cause?.code === "access_denied" ? "uw_only" : "failed";
+      // Code plus Auth0's description, e.g. "invalid_request: <why>", for debugging.
+      console.error("Login failed:", cause?.code ?? error.message, cause?.message ? `: ${cause.message}` : "");
       return NextResponse.redirect(new URL(`/?login_error=${reason}`, base));
     }
     if (session && !isUwEmail(session.user.email)) {
