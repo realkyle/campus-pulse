@@ -1,5 +1,6 @@
 """Tests for AlertPipeline: GPT is called once per alert text, failures retry."""
 from alert_pipeline import AlertPipeline
+from building_coords import effective_scope
 from nlp_summarizer import AlertSummary, AlertTriage
 
 CENTER = (0.0, 0.0)
@@ -49,7 +50,7 @@ def make_pipeline(feed: FakeFeed, ai: FakeAI) -> AlertPipeline:
         triage=ai.triage,
         resolve_coordinates=lambda building: (1.0, 2.0),
         fallback_coordinates=CENTER,
-        campus_keywords=("bothell",),
+        scope_for=effective_scope,
     )
 
 

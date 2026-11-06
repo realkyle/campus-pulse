@@ -1,4 +1,3 @@
-import re
 from datetime import datetime, timezone
 from typing import Callable, Literal, Optional
 
@@ -32,6 +31,8 @@ FetchAlerts = Callable[[], tuple[list[dict], bool]]
 Summarize = Callable[[str], tuple[Optional[AlertSummary], bool]]
 Triage = Callable[[str, AlertSummary], Optional[AlertTriage]]
 ResolveCoordinates = Callable[[str], tuple[float, float]]
+# (alert text, AI scope or None if the AI failed) → "campus" | "university_wide" | "other_campus"
+ScopeFor = Callable[[str, Optional[str]], str]
 
 
 class AlertPipeline:
@@ -43,9 +44,10 @@ class AlertPipeline:
     failed) are not stored, so the next refresh tries the AI again. Alerts that
     leave the feed are forgotten, which keeps memory bounded.
 
-    Scope: an alert that names this campus is pinned (whatever the AI says);
-    a university-wide one is listed without coordinates; one about another
-    campus is left out.
+    Scope comes from `scope_for` (building_coords.effective_scope): campus →
+    pinned; university-wide → listed without coordinates; other campus → left
+    out. A pin needs evidence of this campus in the text itself, not just the
+    AI's word.
 
     The fetch, AI and geocoding steps are injected so tests can use fakes.
     refresh() blocks on network calls; call it from a worker thread, and never
@@ -59,16 +61,14 @@ class AlertPipeline:
         triage: Triage,
         resolve_coordinates: ResolveCoordinates,
         fallback_coordinates: tuple[float, float],
-        campus_keywords: tuple[str, ...],
+        scope_for: ScopeFor,
     ) -> None:
         self._fetch = fetch
         self._summarize = summarize
         self._triage = triage
         self._resolve_coordinates = resolve_coordinates
         self._fallback_coordinates = fallback_coordinates
-        self._campus_pattern = re.compile(
-            r"\b(?:" + "|".join(re.escape(k) for k in campus_keywords) + r")\b", re.IGNORECASE
-        )
+        self._scope_for = scope_for
         # alert ID → its pin, or None for "left out" (other campus)
         self._results_by_id: dict[str, Optional[AlertPin]] = {}
 
@@ -104,14 +104,10 @@ class AlertPipeline:
 
     def _summarized_pin(self, raw: dict, summary: AlertSummary) -> Optional[AlertPin]:
         """The pin for a summarized alert, or None if it's about another campus."""
-        if self._campus_pattern.search(raw["raw_text"]):
-            scope = "campus"
-        elif summary.scope == "campus":
-            scope = "campus"
-        elif summary.scope == "university_wide":
-            scope = "university"
-        else:
+        scope = self._scope_for(raw["raw_text"], summary.scope)
+        if scope == "other_campus":
             return None
+        scope = "campus" if scope == "campus" else "university"
         headline = None
         safety_brief = None
         if summary.severity == "high":
@@ -135,9 +131,9 @@ class AlertPipeline:
 
     def _fallback_pin(self, raw: dict) -> AlertPin:
         # Without the AI we can't place or grade the alert, so show its raw text
-        # rather than hide it: at the campus center if it names this campus,
-        # otherwise in the list only (it may not be about this campus at all).
-        on_campus = bool(self._campus_pattern.search(raw["raw_text"]))
+        # rather than hide it: at the campus center if the text shows it's this
+        # campus, otherwise in the list only.
+        on_campus = self._scope_for(raw["raw_text"], None) == "campus"
         return AlertPin(
             id=raw["id"],
             raw_text=raw["raw_text"],

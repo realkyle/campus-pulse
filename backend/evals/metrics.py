@@ -18,13 +18,13 @@ FIELDS = ("severity", "scope", "building")
 def evaluate(
     cases: list[dict],
     answers: dict[str, Optional[dict]],
-    mentions_campus: Callable[[str], bool],
+    scope_for: Callable[[str, Optional[str]], str],
 ) -> dict:
     """Accuracy per field, severity confusion matrix, critical errors and every failure.
 
     `answers` maps case id → {"severity", "scope", "building"}, or None if the AI's
-    answer was unusable. Scope is scored as the map shows it: the app treats any
-    alert that names the campus as a campus alert, whatever the AI said.
+    answer was unusable. Scope is scored as the map shows it, through the same
+    `scope_for` the app uses (building_coords.effective_scope).
     Building is scored only for alerts expected on this campus.
     """
     correct = {field: 0 for field in FIELDS}
@@ -41,7 +41,7 @@ def evaluate(
             unusable.append(cid)
             got = {"severity": "none", "scope": "none", "building": "none"}
         else:
-            scope = "campus" if mentions_campus(case["text"]) else answer["scope"]
+            scope = scope_for(case["text"], answer["scope"])
             got = {"severity": answer["severity"], "scope": scope, "building": answer["building"]}
 
         confusion[expected["severity"]][got["severity"]] += 1

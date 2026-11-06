@@ -74,3 +74,50 @@ def test_prompt_shows_a_plain_json_schema():
     from nlp_summarizer import SYSTEM_PROMPT
     assert "JSON schema:\n{\n" in SYSTEM_PROMPT
     assert "{{" not in SYSTEM_PROMPT and "}}" not in SYSTEM_PROMPT
+
+
+# ── Scope evidence guard (no pin without evidence in the text) ───────────────
+
+import pytest  # noqa: E402
+
+from building_coords import effective_scope, has_campus_evidence  # noqa: E402
+
+
+@pytest.mark.parametrize("text", [
+    "Fire on the Bothell campus",
+    "Police activity near Founders Hall",
+    "Power outage in UW2",
+    "Road closed on Campus Way NE",
+    "Police at the Beardslee Blvd park-and-ride",
+    "Gas leak near North Creek Hall",
+])
+def test_campus_evidence(text):
+    assert has_campus_evidence(text)
+
+
+@pytest.mark.parametrize("text", [
+    "Traffic blocked near 15th Ave NE",            # a street elsewhere, despite "Ave NE"
+    "A rabid bat was found on University Way NE",  # "Way NE", not Campus Way NE
+    "Emergency response at the Husky Union Building",  # not Husky Hall
+    "Fire alarm in Suzzallo Library",              # "Library" alone is too generic
+    "Earthquake reported in the region",
+])
+def test_no_campus_evidence(text):
+    assert not has_campus_evidence(text)
+
+
+def test_effective_scope():
+    # Naming the campus always pins it.
+    assert effective_scope("Fire on the Bothell campus", "other_campus") == "campus"
+    # The AI says campus but the text shows no evidence: listed for all UW, no pin, never hidden.
+    assert effective_scope("Rabid bat on University Way NE", "campus") == "university_wide"
+    # Evidence other than the name (a building) keeps the AI's campus label.
+    assert effective_scope("Gas leak near North Creek Hall", "campus") == "campus"
+    # Otherwise the AI's label stands.
+    assert effective_scope("Fire in Lander Hall, Seattle", "other_campus") == "other_campus"
+    assert effective_scope("Campuses close at noon", "university_wide") == "university_wide"
+
+
+def test_effective_scope_when_the_ai_failed():
+    assert effective_scope("Gas leak near North Creek Hall", None) == "campus"
+    assert effective_scope("Smoke advisory for the region", None) == "university_wide"
