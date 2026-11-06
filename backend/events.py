@@ -45,11 +45,6 @@ MAJOR_TO_CATEGORIES: dict[str, list[str]] = {
 }
 
 
-def get_events_by_categories(categories: list[str], limit: int = 10) -> list[dict]:
-    matched = [e for e in get_all_events() if e["category"] in categories]
-    return matched[:limit]
-
-
 def infer_categories_from_major(major: str) -> list[str]:
     major_lower = major.lower()
     for keyword, cats in MAJOR_TO_CATEGORIES.items():
