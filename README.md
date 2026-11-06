@@ -39,27 +39,3 @@ Background loops refresh alerts (5 min) and events (60 min) into memory, so API 
 - **A recommender that can actually learn.** SVD on click-only data ranked about as well as random (measured), so I replaced it with an explainable hybrid score (category affinity, other dates of an opened series, item-item co-clicks, popularity, soonness) plus an offline leave-last-out evaluation against a popularity baseline.
 
 More detail, with evidence for each change: [ENGINEERING.md](ENGINEERING.md).
-
-## Run it locally
-
-```bash
-# Backend (Python 3.11)
-cd backend
-python3.11 -m venv venv
-./venv/bin/pip install -r requirements-dev.txt
-cp ../.env.example .env        # OpenAI, Supabase, Auth0 values
-./venv/bin/python -m uvicorn main:app --reload --port 8000
-./venv/bin/python -m pytest    # no keys needed; tests never touch the real database
-
-# Frontend (Node 20+)
-cd frontend
-npm install
-cp .env.example .env.local     # Auth0 values; NEXT_PUBLIC_API_URL=http://localhost:8000
-npm run dev                    # http://localhost:3000
-```
-
-Setup guides: [Auth0](auth0/README.md) · [Database](supabase/README.md) · API contracts in [`api/`](api/).
-
-## Project history
-
-Campus Pulse started as a three-person course project. I later audited it end to end and rebuilt it: security, AI evaluation, data pipelines, the recommender, performance, and CI/CD, in 20 pull requests. Not yet built: notifications, university SSO, frontend tests. See [ENGINEERING.md](ENGINEERING.md#status).

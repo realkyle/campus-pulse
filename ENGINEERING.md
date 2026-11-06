@@ -1,6 +1,6 @@
 # Engineering notes
 
-How Campus Pulse is built, what changed during the rebuild, and how each change was verified. The [README](README.md) has the short version.
+How Campus Pulse is built, what changed, and how each change was verified. The [README](README.md) has the short version.
 
 ## Stack
 
@@ -56,11 +56,31 @@ How Campus Pulse is built, what changed during the rebuild, and how each change 
 - One branch and one pull request per change (20), each with what / why / how it was verified. API contracts in `api/` are written before the code.
 - CI: ruff + pytest (202 tests), ESLint + build. On merge, a deploy job triggers Render and **polls `/api/health` until the live version equals the merged commit** (it would have caught Render silently deploying an old repository).
 
+## Running it locally
+
+```bash
+# Backend (Python 3.11)
+cd backend
+python3.11 -m venv venv
+./venv/bin/pip install -r requirements-dev.txt
+cp ../.env.example .env        # OpenAI, Supabase, Auth0 values
+./venv/bin/python -m uvicorn main:app --reload --port 8000
+./venv/bin/python -m pytest    # no keys needed; tests never touch the real database
+
+# Frontend (Node 20+)
+cd frontend
+npm install
+cp .env.example .env.local     # Auth0 values; NEXT_PUBLIC_API_URL=http://localhost:8000
+npm run dev                    # http://localhost:3000
+```
+
+Setup guides: [Auth0](auth0/README.md) · [Database](supabase/README.md) · API contracts in [`api/`](api/).
+
 ## Status
 
 **Built and deployed:** everything above.
 
-**Not built** (some appeared in the original course proposal):
+**Not built:**
 - University SSO (Shibboleth); sign-in uses Google with UW accounts.
 - Email or push notifications.
 - Automatic purging of old click data.
