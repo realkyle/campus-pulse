@@ -1,6 +1,6 @@
 # Environment
 .env
-.env.local
+.env*.local
 
 # Python
 backend/venv/
@@ -27,3 +27,6 @@ CLAUDE.md
 
 # Ruff
 .ruff_cache/
+
+# Personal Claude Code settings (attribution off)
+.claude/settings.local.json
